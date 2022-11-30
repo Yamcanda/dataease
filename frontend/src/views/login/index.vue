@@ -12,16 +12,6 @@
           type="flex"
         >
           <el-col :span="12">
-            <!-- <div
-              v-show="qrTypes.length"
-              :class="codeShow ? 'trans-pc' : 'trans'"
-              @click="showQr"
-            >
-              <div
-                v-show="imgAppShow"
-                class="imgApp"
-              />
-            </div> -->
             <el-form
               v-show="!codeShow"
               ref="loginForm"
@@ -169,20 +159,6 @@
 
             </div>
           </el-col>
-          <!-- <el-col
-            v-loading="!axiosFinished"
-            :span="12"
-          >
-            <div
-              v-if="!loginImageUrl && axiosFinished"
-              class="login-image"
-            />
-            <div
-              v-if="loginImageUrl && axiosFinished"
-              class="login-image-de"
-              :style="{background:'url(' + loginImageUrl + ') no-repeat', 'backgroundSize':'contain'}"
-            />
-          </el-col> -->
         </el-row>
 
       </div>

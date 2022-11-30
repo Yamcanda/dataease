@@ -5,6 +5,7 @@ import io.dataease.plugins.common.base.domain.License;
 import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.LogUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -18,8 +19,10 @@ public class DefaultLicenseService {
     @Resource
     private InnerLicenseService innerLicenseService;
 
+    @Value("${dataease.license.validator:/usr/bin/validator}")
+    private  String validatorUtil;
+    
     private static final String LICENSE_ID = "fit2cloud_license";
-    private static final String validatorUtil = "/usr/bin/validator";
     private static final String product = "DataEase";
 
     public F2CLicenseResponse validateLicense(String product, String licenseKey) {
