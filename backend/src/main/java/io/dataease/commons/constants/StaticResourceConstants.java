@@ -2,8 +2,6 @@ package io.dataease.commons.constants;
 
 import java.io.File;
 
-import static io.dataease.commons.utils.StaticResourceUtils.ensureSuffix;
-
 /**
  * Author: wangjiahao
  * Date: 2022/4/28
@@ -15,9 +13,9 @@ public class StaticResourceConstants {
 
     public static final String FILE_SEPARATOR = File.separator;
 
-    public static final String USER_HOME = "/opt/dataease/data";
+    //public static final String USER_HOME = "/opt/dataease/data";
 
-    public static String WORK_DIR = ensureSuffix(USER_HOME, FILE_SEPARATOR) + "static-resource" + FILE_SEPARATOR;
+//    public static String WORK_DIR = ensureSuffix(USER_HOME, FILE_SEPARATOR) + "static-resource" + FILE_SEPARATOR;
 
     /**
      * Upload prefix.

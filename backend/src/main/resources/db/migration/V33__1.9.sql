@@ -90,7 +90,7 @@ CREATE TABLE `de_engine` (
 
 INSERT INTO `system_parameter`(`param_key`, `param_value`, `type`, `sort`) VALUES ('ui.mobileBG', NULL, 'file', 14);
 
-UPDATE `demo_gdp_district_top100` set `province` = '新疆维吾尔自治区' WHERE `province` = '新疆维吾尔族自治区';
+-- UPDATE `demo_gdp_district_top100` set `province` = '新疆维吾尔自治区' WHERE `province` = '新疆维吾尔族自治区';
 
 ALTER TABLE `sys_auth`
 ADD COLUMN `copy_from` varchar(255) NULL COMMENT '复制来源' AFTER `update_time`,

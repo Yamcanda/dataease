@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2 http://maven.apache.org/xsd/assembly-1.1.2.xsd">
+    <id>standalone-tar-gz</id>
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    
+	<dependencySets>
+        <dependencySet>
+        	<outputDirectory>${project.artifactId}-${project.version}/lib</outputDirectory>
+            <unpack>false</unpack>
+            <scope>runtime</scope>
+            <useProjectArtifact>false</useProjectArtifact>
+        </dependencySet>
+    </dependencySets>
+    
+    <fileSets>
+        <fileSet>
+            <directory>bin</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        
+        <fileSet>
+            <directory>src/main/resources</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/config</outputDirectory>
+            <excludes>
+                <exclude>application**.properties</exclude>
+                <exclude>generatorConfig.properties</exclude>
+                <exclude>db/**/*</exclude>
+				<exclude>db</exclude>
+            </excludes>
+            <includes>
+            	<include>**/*</include>
+            </includes>
+        </fileSet>
+        
+        <fileSet>
+            <directory>../frontend/dist</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/config/static</outputDirectory>
+            <excludes>
+                <exclude>**.html</exclude>
+            </excludes>
+        </fileSet>
+        
+        <fileSet>
+            <directory>../frontend/dist</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/config/templates</outputDirectory>
+            <includes>
+                <include>**.html</include>
+            </includes>
+        </fileSet>
+        
+        <fileSet>
+            <directory>../mobile/dist</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/config/static/de-app</outputDirectory>
+            <excludes>
+                <exclude>**.html</exclude>
+            </excludes>
+        </fileSet>
+    </fileSets>
+    
+	<files>
+        <file>
+            <source>${project.basedir}/target/${project.build.finalName}.jar</source>
+            <outputDirectory>${project.artifactId}-${project.version}/bin</outputDirectory>
+            <destName>${project.build.bootstrap}.jar</destName>
+        </file>
+        
+        <file>
+            <source>../mobile/dist/index.html</source>
+            <outputDirectory>${project.artifactId}-${project.version}/config/templates</outputDirectory>
+            <destName>app.html</destName>
+        </file>
+    </files>
+    
+</assembly>

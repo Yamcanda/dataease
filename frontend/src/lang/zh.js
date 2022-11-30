@@ -2619,7 +2619,7 @@ export default {
   },
   wizard: {
     welcome_title: '欢迎使用DataEase',
-    welcome_hint: '人人可用的开源数据可视化分析工具',
+    welcome_hint: '数据可视化分析工具',
     demo_video: '演示视频',
     quick_start: '快速入门',
     online_document: '在线文档',

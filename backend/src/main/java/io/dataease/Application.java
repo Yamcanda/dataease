@@ -16,9 +16,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 })
 @ServletComponentScan
 @EnableScheduling
-@PropertySource(value = {"file:/opt/dataease/conf/dataease.properties"}, encoding = "UTF-8", ignoreResourceNotFound = true)
+@PropertySource(value = {"classpath:/dataease-${spring.profiles.active}.properties"}, encoding = "UTF-8")
 public class Application {
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
+    
 }

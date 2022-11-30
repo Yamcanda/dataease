@@ -1,7 +1,5 @@
 package io.dataease.commons.utils;
 
-import static io.dataease.commons.constants.StaticResourceConstants.*;
-
 import cn.hutool.core.codec.Base64Encoder;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.NonNull;
@@ -18,7 +16,7 @@ import java.io.InputStream;
  */
 public class StaticResourceUtils {
 
-    private final static String FILE_BASE_PATH = USER_HOME+ FILE_SEPARATOR+UPLOAD_URL_PREFIX;
+//    private final static String FILE_BASE_PATH = USER_HOME+ FILE_SEPARATOR+UPLOAD_URL_PREFIX;
 
     public static String ensureBoth(@NonNull String string, @NonNull String bothfix) {
         return ensureBoth(string, bothfix, bothfix);
@@ -69,7 +67,7 @@ public class StaticResourceUtils {
         byte[] buffer = null;
         //Read picture byte array
         try {
-            inputStream = new FileInputStream(FILE_BASE_PATH+FILE_SEPARATOR+imgFile);
+            inputStream = new FileInputStream(imgFile);
             int count = 0;
             while (count == 0) {
                 count = inputStream.available();

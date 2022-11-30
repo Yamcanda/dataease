@@ -72,9 +72,9 @@ public class Knife4jConfiguration implements BeanPostProcessor{
     private ApiInfo apiInfo(){
         return new ApiInfoBuilder()
                 .title("DataEase")
-                .description("人人可用的开源数据可视化分析工具")
-                .termsOfServiceUrl("https://dataease.io")
-                .contact(new Contact("Dataease","https://www.fit2cloud.com/dataease/index.html","dataease@fit2cloud.com"))
+                .description("数据可视化分析工具")
+                //.termsOfServiceUrl("https://dataease.io")
+                //.contact(new Contact("Dataease","https://www.fit2cloud.com/dataease/index.html","dataease@fit2cloud.com"))
                 .version(version)
                 .build();
     }

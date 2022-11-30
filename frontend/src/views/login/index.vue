@@ -12,7 +12,7 @@
           type="flex"
         >
           <el-col :span="12">
-            <div
+            <!-- <div
               v-show="qrTypes.length"
               :class="codeShow ? 'trans-pc' : 'trans'"
               @click="showQr"
@@ -21,7 +21,7 @@
                 v-show="imgAppShow"
                 class="imgApp"
               />
-            </div>
+            </div> -->
             <el-form
               v-show="!codeShow"
               ref="loginForm"
@@ -169,7 +169,7 @@
 
             </div>
           </el-col>
-          <el-col
+          <!-- <el-col
             v-loading="!axiosFinished"
             :span="12"
           >
@@ -182,7 +182,7 @@
               class="login-image-de"
               :style="{background:'url(' + loginImageUrl + ') no-repeat', 'backgroundSize':'contain'}"
             />
-          </el-col>
+          </el-col> -->
         </el-row>
 
       </div>
@@ -513,8 +513,9 @@ export default {
 
 .login-container {
   min-width: 900px;
-  width: 1280px;
+  width: 1000px;
   height: 520px;
+  border: 1px solid blue;
   background-color: var(--ContentBG, #FFFFFF);
   @media only screen and (max-width: 1280px) {
     width: 900px;

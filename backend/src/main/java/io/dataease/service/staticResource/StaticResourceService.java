@@ -1,11 +1,14 @@
 package io.dataease.service.staticResource;
 
+import static io.dataease.commons.constants.StaticResourceConstants.*;
+
 import cn.hutool.core.codec.Base64Decoder;
 import cn.hutool.core.collection.CollectionUtil;
 import com.google.gson.Gson;
 import io.dataease.commons.utils.FileUtils;
 import io.dataease.commons.utils.LogUtil;
 import io.dataease.commons.utils.StaticResourceUtils;
+import io.dataease.config.properties.StaticResourceProperties;
 import io.dataease.controller.request.resource.StaticResourceRequest;
 import io.dataease.exception.DataEaseException;
 import org.apache.commons.lang3.StringUtils;
@@ -21,6 +24,8 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.annotation.Resource;
+
 /**
  * Author: wangjiahao
  * Date: 2022/4/24
@@ -29,11 +34,20 @@ import java.util.Map;
 @Service
 public class StaticResourceService {
 
-    private final Path staticDir = Paths.get("/opt/dataease/data/static-resource/");
-
-    public void upload(String fileId,MultipartFile file) {
+    //private final Path staticDir = Paths.get("/opt/dataease/data/static-resource/");
+	
+	@Resource
+	private StaticResourceProperties staticResourceProperties;
+	
+//    private final Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
+    
+//    private final String FILE_BASE_PATH = staticResourceProperties.getStaticUserHome() + FILE_SEPARATOR+UPLOAD_URL_PREFIX;
+    
+    public void upload(String fileId, MultipartFile file) {
         // check if the path is valid (not outside staticDir)
         Assert.notNull(file, "Multipart file must not be null");
+        
+        Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
         try {
             String originName = file.getOriginalFilename();
             String newFileName = fileId+originName.substring(originName.lastIndexOf("."),originName.length());
@@ -62,7 +76,9 @@ public class StaticResourceService {
         }
     }
 
-    public void saveSingleFileToServe(String fileName,String content){
+    public void saveSingleFileToServe(String fileName,String content) {
+    	Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
+    	
         Path uploadPath = Paths.get(staticDir.toString(), fileName);
         try{
             if (uploadPath.toFile().exists()) {
@@ -73,19 +89,24 @@ public class StaticResourceService {
                     FileCopyUtils.copy(Base64Decoder.decode(content),Files.newOutputStream(uploadPath));
                 }
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             LogUtil.error("template static resource save error"+e.getMessage());
         }
     }
-
-    public Map<String,String> findResourceAsBase64(StaticResourceRequest resourceRequest){
+    
+    public Map<String,String> findResourceAsBase64(StaticResourceRequest resourceRequest) {
+    	String FILE_BASE_PATH = staticResourceProperties.getStaticUserHome() + FILE_SEPARATOR+UPLOAD_URL_PREFIX;
+    	
         Map<String,String> result = new HashMap<>();
-        if(CollectionUtil.isNotEmpty(resourceRequest.getResourcePathList())){
-            for(String path :resourceRequest.getResourcePathList()){
-                String value = StaticResourceUtils.getImgFileToBase64(path.substring(path.lastIndexOf("/")+1,path.length()));
+        if(CollectionUtil.isNotEmpty(resourceRequest.getResourcePathList())) {
+            for(String path :resourceRequest.getResourcePathList()) {
+            	String imgPath = path.substring(path.lastIndexOf("/") + 1, path.length());
+            	String imgFile = FILE_BASE_PATH + FILE_SEPARATOR + imgPath;
+                String value = StaticResourceUtils.getImgFileToBase64(imgFile);
                 result.put(path,value);
             }
         }
         return  result;
     }
+    
 }

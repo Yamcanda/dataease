@@ -71,10 +71,10 @@
 
           </el-upload>
 
-          <a
+          <!-- <a
             class="md-primary pointer"
             @click="support"
-          >{{ $t('about.support') }}</a>
+          >{{ $t('about.support') }}</a> -->
 
         </div>
       </div>

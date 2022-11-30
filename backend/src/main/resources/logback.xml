@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="true">
-	<property resource="application.properties"/>
-	<property file="/opt/dataease/conf/dataease.properties"/>
+	<property resource="application.properties" />
+	<!-- <property file="/opt/dataease/conf/dataease.properties"/> -->
+	<property resource="dataease-prod.properties" />
+	
 	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
 			<pattern>%d %5p %40.40c:%4L - %m%n</pattern>
@@ -143,7 +145,7 @@
 
 	<root level="INFO">
 		<appender-ref ref="infoAsyncAppender" />
-		<appender-ref ref="console"/>
+		<!-- <appender-ref ref="console"/> -->
 	</root>
 
 	<logger name="io.dataease" additivity="false">
@@ -153,13 +155,13 @@
 		<appender-ref ref="errorAsyncAppender"/>
 	</logger>
 
-	<logger name="io.dataease.plugins.common.base.mapper" level="${logger.sql.level}">
+	<!-- <logger name="io.dataease.plugins.common.base.mapper" level="${logger.sql.level}">
 		<appender-ref ref="console"/>
 	</logger>
 
 	<logger name="io.dataease.ext" level="${logger.sql.level}">
 		<appender-ref ref="console"/>
-	</logger>
+	</logger> -->
 
 	<logger name="io.dataease.Application" additivity="false" level="${logger.level:INFO}">
 		<appender-ref ref="infoAsyncAppender"/>

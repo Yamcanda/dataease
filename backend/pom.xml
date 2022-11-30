@@ -10,6 +10,8 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>backend</artifactId>
 
+	<packaging>jar</packaging>
+	
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <shiro.version>1.9.1</shiro.version>
@@ -92,7 +94,14 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.28</version>
+            <!-- <version>8.0.28</version> -->
+            <version>5.1.34</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>sqljdbc4</artifactId>
+            <version>4.0</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -334,59 +343,29 @@
             <artifactId>ashot</artifactId>
             <version>1.5.4</version>
         </dependency>
-
-
     </dependencies>
 
     <build>
-        <resources>
-            <resource>
-                <directory>src/main/java</directory>
-                <includes>
-                    <include>**/*.properties</include>
-                    <include>**/*.xml</include>
-                </includes>
-                <filtering>false</filtering>
-            </resource>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-                <excludes>
-                    <exclude>static/**/*.woff</exclude>
-                    <exclude>static/**/*.woff2</exclude>
-                    <exclude>static/**/*.ttf</exclude>
-                    <exclude>static/**/*.ico</exclude>
-                </excludes>
-            </resource>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>false</filtering>
-                <includes>
-                    <include>static/**/*.woff</include>
-                    <include>static/**/*.woff2</include>
-                    <include>static/**/*.ttf</include>
-                    <include>static/**/*.ico</include>
-                </includes>
-            </resource>
-        </resources>
-
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.1.0</version>
-                <configuration>
-                    <encoding>UTF-8</encoding>
-                    <nonFilteredFileExtensions>
-                        <nonFilteredFileExtension>xlsx</nonFilteredFileExtension>
-                    </nonFilteredFileExtensions>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
-                    <addResources>true</addResources>
+                	<layout>ZIP</layout>
+                    <fork>true</fork>
+                    <includes>
+                        <include>
+                            <groupId>nothing</groupId>
+                            <artifactId>nothing</artifactId>
+                        </include>
+                    </includes>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
@@ -402,7 +381,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.12.4</version>
                 <configuration>
                     <skipTests>true</skipTests>
                 </configuration>
@@ -432,15 +410,21 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
             </plugin>
-            <!-- Overlay guacamole-common-js (zip) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-war-plugin</artifactId>
-                <version>2.6</version>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>false</addClasspath>
+                        </manifest>
+                    </archive>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.mybatis.generator</groupId>
@@ -472,53 +456,76 @@
             <properties>
                 <profiles.active>whole</profiles.active>
             </properties>
+        </profile>
+        
+        <profile>
+            <id>standalone</id>
+            <properties>
+                <profiles.active>standalone</profiles.active>
+            </properties>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <?m2e execute onConfiguration?>
-                                <id>main-class-placement</id>
-                                <phase>generate-resources</phase>
-                                <configuration>
-                                    <target>
-                                        <move todir="src/main/resources/static">
-                                            <fileset dir="../frontend/dist">
-                                                <exclude name="*.html"/>
-                                            </fileset>
-                                        </move>
-                                        <move todir="src/main/resources/templates">
-                                            <fileset dir="../frontend/dist">
-                                                <include name="*.html"/>
-                                            </fileset>
-                                        </move>
-                                        <copy todir="src/main/resources/static/de-app">
-                                            <fileset dir="../mobile/dist">
-                                                <exclude name="*.html"/>
-                                            </fileset>
-                                        </copy>
-                                        <copy file="../mobile/dist/index.html" tofile="src/main/resources/templates/app.html"/>
-                                    </target>
-                                </configuration>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>stage</id>
-            <properties>
-                <profiles.active>stage</profiles.active>
-            </properties>
+		        <resources>
+		        	<resource>
+		                <directory>src/main/java</directory>
+		                <filtering>false</filtering>
+		                <includes>
+		                    <include>**/*.xml</include>
+		                </includes>
+		            </resource>
+					<resource>
+						<directory>src/main/resources</directory>
+						<filtering>true</filtering>
+						<excludes>
+							<exclude>META-INF/**/*</exclude>
+							<exclude>META-INF</exclude>
+							<exclude>ehcache/**/*</exclude>
+							<exclude>ehcache</exclude>
+							<exclude>sql/**/*</exclude>
+							<exclude>sql</exclude>
+							<exclude>i18n/**/*</exclude>
+							<exclude>i18n</exclude>
+							<exclude>excel/**/*</exclude>
+							<exclude>excel</exclude>
+							<exclude>**/*.properties</exclude>
+							<exclude>**/logback.xml</exclude>
+						</excludes>
+					</resource>
+					<resource>
+						<directory>src/main/resources</directory>
+						<filtering>true</filtering>
+						<includes>
+							<include>**/application.properties</include>
+							<include>**/application-stage.properties</include>
+							<include>**/application-whole.properties</include>
+						</includes>
+					</resource>
+				</resources>
+	            <plugins>
+	                    <plugin>
+	                        <groupId>org.apache.maven.plugins</groupId>
+	                        <artifactId>maven-assembly-plugin</artifactId>
+	                        <version>3.3.0</version>
+	                        <executions>
+	                            <execution>
+	                                <phase>package</phase>
+	                                <goals>
+	                                    <goal>single</goal>
+	                                </goals>
+	                                <configuration>
+	                                    <appendAssemblyId>false</appendAssemblyId>
+	                                    <finalName>${project.finalName}</finalName>
+	                                    <descriptors>
+	                                        <descriptor>assembly/assembly-standalone-zip.xml</descriptor>
+	                                    </descriptors>
+	                                </configuration>
+	                            </execution>
+	                        </executions>
+	                    </plugin>
+	                </plugins>
+                </build>
         </profile>
     </profiles>
 

@@ -3,7 +3,9 @@
         "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd" >
 <generatorConfiguration>
     <!--配置数据库连接的位置-->
-    <properties url="file:///opt/dataease/conf/dataease.properties"/>
+    <!-- <properties url="file:///opt/dataease/conf/dataease.properties"/> -->
+    <properties resource="dataease.properties"></properties>
+    
     <!-- 设置mysql驱动路径 -->
     <!-- 此处指定生成针对MyBatis3的DAO -->
     <context id="mysql" targetRuntime="MyBatis3">
@@ -35,8 +37,8 @@
             <property name="suppressAllComments" value="true"/>
         </commentGenerator>
 
-        <!-- jdbc连接信息 --> <!-- EduLoanManage EduTestDataBase -->
-        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+        <!-- jdbc连接信息 --> <!-- EduLoanManage EduTestDataBase com.mysql.cj.jdbc.Driver -->
+        <jdbcConnection driverClass="com.mysql.jdbc.Driver"
                         connectionURL="${spring.datasource.url}&amp;nullCatalogMeansCurrent=true"
                         userId="${spring.datasource.username}" password="${spring.datasource.password}"/>
 
