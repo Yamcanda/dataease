@@ -571,6 +571,10 @@
 							<exclude>i18n</exclude>
 							<exclude>excel/**/*</exclude>
 							<exclude>excel</exclude>
+							<exclude>static/**/*</exclude>
+							<exclude>static</exclude>
+							<exclude>templates/**/*</exclude>
+							<exclude>templates</exclude>
 							<exclude>**/*.properties</exclude>
 							<exclude>**/logback.xml</exclude>
 						</excludes>

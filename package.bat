@@ -3,6 +3,6 @@ echo [INFO] Package the jar in target dir.
 
 cd %~dp0
 
-call mvn clean package
+call mvn clean package -Pstandalone
 
 pause
