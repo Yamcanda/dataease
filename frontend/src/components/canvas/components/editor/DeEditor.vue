@@ -121,7 +121,7 @@
       :canvas-id="canvasId"
     />
     <!-- 右击菜单 -->
-    <ContextMenu/>
+    <ContextMenu />
 
     <!-- 对齐标线 -->
     <span
@@ -1106,6 +1106,11 @@ export default {
     },
     triggerResetButton() {
       this.triggerSearchButton(true)
+      this.$refs['wrapperChild']?.forEach(item => {
+        if (item?.['responseResetButton']) {
+          item.responseResetButton()
+        }
+      })
     },
     refreshButtonInfo(isClear = false) {
       const result = this.buildButtonFilterMap(this.componentData, isClear)

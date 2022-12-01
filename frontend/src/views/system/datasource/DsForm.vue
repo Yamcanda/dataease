@@ -155,7 +155,7 @@
               <el-input
                 v-model="form.name"
                 autocomplete="off"
-                :placeholder="$t('commons.input_name')"
+                :placeholder="$t('datasource.input_name')"
               />
             </el-form-item>
             <el-form-item
@@ -182,6 +182,7 @@
             >
               <deTextarea
                 v-model="form.desc"
+                :maxlength="50"
                 class="w100-textarea"
               />
             </el-form-item>
@@ -708,6 +709,7 @@ export default {
       if (this.form.type === 'oracle') {
         this.$set(this.form.configuration, 'charset', 'Default')
         this.$set(this.form.configuration, 'targetCharset', 'Default')
+        this.$set(this.form.configuration, 'connectionType', 'sid')
       }
     },
     changeEdit() {

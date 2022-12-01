@@ -69,7 +69,7 @@
               </span>
               <span
                 v-if="hasDataPermission('manage', data.privileges)"
-                :title="'置顶'"
+                :title="$t('panel.to_top')"
                 class="child"
                 @click.stop
               >
@@ -109,7 +109,7 @@
                       icon="el-icon-delete"
                       :command="beforeClickMore('delete', data, node)"
                     >
-                      {{ $t('panel.delete') }}
+                      {{ $t('commons.cancel') + $t('emailtask.default') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </el-dropdown>
@@ -121,7 +121,7 @@
             class="default-expansion"
             @click="defaultExpansion = !defaultExpansion"
           >
-            {{ defaultExpansion ? '收起' : '展开' }}
+            {{ defaultExpansion ? $t('panel.fold') : $t('panel.expand') }}
             <i
               :class="[
                 defaultExpansion ? 'el-icon-arrow-up' : 'el-icon-arrow-down'
@@ -174,7 +174,7 @@
                   />
                 </span>
                 <span v-if="data.nodeType === 'folder'">
-                  <svg-icon icon-class="scene"/>
+                  <svg-icon icon-class="scene" />
                 </span>
                 <span
                   :class="data.status"
@@ -211,7 +211,7 @@
                       <el-dropdown-item
                         :command="beforeClickEdit('folder', 'new', data, node)"
                       >
-                        <svg-icon icon-class="scene"/>
+                        <svg-icon icon-class="scene" />
                         <span style="margin-left: 5px">{{ $t('panel.groupAdd') }}</span>
                       </el-dropdown-item>
                       <el-dropdown-item
@@ -334,7 +334,7 @@
             :label="$t('commons.name')"
             prop="name"
           >
-            <el-input v-model="groupForm.name"/>
+            <el-input v-model="groupForm.name" />
           </el-form-item>
         </el-form>
         <div
@@ -345,8 +345,8 @@
             size="mini"
             @click="close()"
           >{{
-              $t('panel.cancel')
-            }}
+            $t('panel.cancel')
+          }}
           </el-button>
           <el-button
             type="primary"
@@ -373,7 +373,7 @@
 
       <el-dialog
         v-dialogDrag
-        :title="linkTitle"
+        :title="$t('panel.link_share')"
         :visible.sync="linkVisible"
         width="500px"
         @closed="removeLink"
@@ -422,8 +422,8 @@
             size="mini"
             @click="closeMoveGroup()"
           >{{
-              $t('dataset.cancel')
-            }}
+            $t('dataset.cancel')
+          }}
           </el-button>
           <el-button
             :disabled="groupMoveConfirmDisabled"
@@ -512,7 +512,6 @@ export default {
         node: {},
         optType: 'newFirstFolder'
       },
-      linkTitle: '链接分享',
       linkVisible: false,
       linkResourceId: null,
       authTitle: null,
@@ -729,7 +728,6 @@ export default {
             optType: 'rename',
             titlePre: this.$t('commons.edit'),
             panelInfo: {
-              pid: param.data.pid,
               id: param.data.id,
               name: param.data.name,
               nodeType: param.type

@@ -1338,9 +1338,14 @@ public class SqlserverQueryProvider extends QueryProvider {
     public List<Dateformat> dateformat() {
         return JSONArray.parseArray("[\n" +
                 "{\"dateformat\": \"102\", \"desc\": \"yyyy.mm.dd\"},\n" +
-                "{\"dateformat\": \"23\", \"desc\": \"yyyy-mm-dd\"},\n" +
+                "{\"dateformat\": \"120\", \"desc\": \"yyyy-mm-dd\"},\n" +
                 "{\"dateformat\": \"111\", \"desc\": \"yyyy/mm/dd\"},\n" +
+                "{\"dateformat\": \"112\", \"desc\": \"yyyymmdd\"},\n" +
                 "{\"dateformat\": \"120\", \"desc\": \"yyyy-mm-dd hh:mi:ss\"}\n" +
                 "]", Dateformat.class);
+    }
+
+    public String getResultCount(boolean isTable, String sql, List<ChartViewFieldDTO> xAxis, List<ChartFieldCustomFilterDTO> fieldCustomFilter, List<DataSetRowPermissionsTreeDTO> rowPermissionsTree, List<ChartExtFilterRequest> extFilterRequestList, Datasource ds, ChartViewWithBLOBs view) {
+        return null;
     }
 }

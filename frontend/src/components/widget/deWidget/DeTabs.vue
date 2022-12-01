@@ -202,7 +202,7 @@
     </el-dialog>
 
     <text-attr
-      v-if="showAttr && curComponent.canvasId === activeCanvasId" && isEdit
+      v-if="showAttr && curComponent.canvasId === activeCanvasId && isEdit"
       :canvas-id="curComponent.canvasId"
       :scroll-left="scrollLeft"
       :scroll-top="scrollTop"
@@ -464,15 +464,20 @@ export default {
       }
     },
     initCarousel() {
-      this.timer && clearInterval(this.timer)
-      if (this.element.style.carouselEnable) {
-        const switchTime = (this.element.style.switchTime || 5) * 1000
+      const _this = this
+      _this.timer && clearInterval(_this.timer)
+      if (_this.element.style.carouselEnable) {
+        const switchTime = (_this.element.style.switchTime || 5) * 1000
         let switchCount = 1
         // 轮播定时器
-        this.timer = setInterval(() => {
-          const nowIndex = switchCount % this.element.options.tabList.length
+        _this.timer = setInterval(() => {
+          const nowIndex = switchCount % _this.element.options.tabList.length
           switchCount++
-          this.activeTabName = this.element.options.tabList[nowIndex].name
+          _this.activeTabName = _this.element.options.tabList[nowIndex].name
+          const targetRef = _this.$refs['canvasTabRef-' + _this.activeTabName]
+          if (targetRef) {
+            targetRef[0].restore()
+          }
         }, switchTime)
       }
     },
@@ -702,23 +707,26 @@ export default {
   border-color: blueviolet;
 }
 
-::v-deep .el-tabs__nav {
-  width: 100%;
+::v-deep .el-tabs__nav-prev {
+  line-height: 25px;
+}
+::v-deep .el-tabs__nav-next {
+  line-height: 25px;
 }
 
-.tab-head-left ::v-deep .el-tabs__nav {
-  width: 100%;
-  text-align: left;
+.tab-head-left ::v-deep .el-tabs__nav-scroll {
+  display: flex;
+  justify-content: start;
 }
 
-.tab-head-right ::v-deep .el-tabs__nav {
-  width: 100%;
-  text-align: right;
+.tab-head-right ::v-deep .el-tabs__nav-scroll {
+  display: flex;
+  justify-content: end;
 }
 
-.tab-head-center ::v-deep .el-tabs__nav {
-  width: 100%;
-  text-align: center;
+.tab-head-center ::v-deep .el-tabs__nav-scroll {
+  display: flex;
+  justify-content: center;
 }
 
 .frame-mask {

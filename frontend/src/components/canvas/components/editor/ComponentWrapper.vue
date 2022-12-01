@@ -13,6 +13,7 @@
       :canvas-id="canvasId"
       :chart="chart"
       :show-position="showPosition"
+      :series-id-map="seriesIdMap"
       @showViewDetails="showViewDetails"
     />
     <div
@@ -149,7 +150,10 @@ export default {
   data() {
     return {
       previewVisible: false,
-      chart: null
+      chart: null,
+      seriesIdMap: {
+        id: ''
+      }
     }
   },
   computed: {
@@ -289,14 +293,18 @@ export default {
       }
     },
     elementMouseDown(e) {
-      // private 设置当前组件数据及状态
+      // // private 设置当前组件数据及状态
       this.$store.commit('setClickComponentStatus', true)
       if (this.config.component !== 'v-text' && this.config.component !== 'rect-shape' && this.config.component !== 'de-input-search' && this.config.component !== 'de-select-grid' && this.config.component !== 'de-number-range' && this.config.component !== 'de-date') {
         e.preventDefault()
       }
       // 阻止冒泡事件
       e.stopPropagation()
-      this.$store.commit('setCurComponent', { component: this.config, index: this.index })
+      const _this = this
+      setTimeout(() => {
+        _this.$store.commit('setCurComponent', { component: _this.config, index: _this.index })
+      }, 200)
+
     },
     showViewDetails(params) {
       this.$refs.wrapperChild.openChartDetailsDialog(params)
@@ -312,8 +320,13 @@ export default {
       }
     },
     clearHandler() {
-      if (this.$refs.deOutWidget && this.$refs.deOutWidget.clearHandler) {
+      if (this.$refs.deOutWidget?.clearHandler) {
         this.$refs.deOutWidget.clearHandler()
+      }
+    },
+    responseResetButton() {
+      if (this.$refs.wrapperChild?.responseResetButton) {
+        this.$refs.wrapperChild.responseResetButton()
       }
     }
   }

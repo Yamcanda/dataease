@@ -18,7 +18,7 @@
       :style="title_class"
       style="cursor: default;display: block;"
     >
-      <div style="padding:6px 4px 0;margin: 0;">
+      <div style="padding:4px 4px 0;margin: 0;">
         <chart-title-update
           :title-class="title_class"
           :chart-info="chartInfo"
@@ -202,7 +202,7 @@ export default {
       })
     },
     checkSelected(param) {
-      return (this.linkageActiveParam.name.indexOf(param.name) > -1) &&
+      return (this.linkageActiveParam.name === param.name || (this.linkageActiveParam.name === 'NO_DATA' && !param.name)) &&
         (this.linkageActiveParam.category === param.category)
     },
     preDraw() {

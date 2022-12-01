@@ -43,7 +43,7 @@ export default {
   },
   track: {
     upload_limit_format: '图片格式错误，支持JPG，PNG',
-    upload_limit_size: '图片大小不超过',
+    upload_limit_size: '图片大小不超过'
   },
   route: {
     dashboard: '首页',
@@ -135,6 +135,7 @@ export default {
     default_login: '普通登录'
   },
   commons: {
+    collapse_navigation: '收起导航',
     operate_cancelled: '已取消操作',
     bind: '绑定',
     unbind: '解绑',
@@ -310,6 +311,7 @@ export default {
     validate: '校验',
     batch_add: '批量添加',
     tag_tip: '输入回车添加标签',
+    search_keywords: '输入关键字搜索',
     table: {
       select_tip: '已选中 {0} 条数据'
     },
@@ -321,7 +323,10 @@ export default {
       start_date_time: '开始日期时间',
       end_date_time: '结束日期时间',
       range_separator: '至',
-      data_time_error: '开始日期不能大于结束日期'
+      data_time_error: '开始日期不能大于结束日期',
+      one_day: '一天',
+      one_week: '一周',
+      one_month: '一个月'
     },
     adv_search: {
       title: '高级搜索',
@@ -530,7 +535,10 @@ export default {
     set_saved_successfully: '数据集保存成功',
     to_start_using: '浏览您的数据库，表和列的内容。 选择一个数据库即可开始使用。',
     to_run_query: '点击运行查询',
-    the_running_results: '即可查看运行结果'
+    the_running_results: '即可查看运行结果',
+    item: '项',
+    logic_filter: '条件筛选',
+    enum_filter: '枚举筛选'
   },
   detabs: {
     custom_sort: '自定义排序',
@@ -810,6 +818,7 @@ export default {
     edite_organization: '编辑组织'
   },
   system_parameter_setting: {
+    email_server_config: '邮箱服务器配置',
     edit_success: '编辑成功',
     mailbox_service_settings: '邮件设置',
     test_connection: '测试连接',
@@ -1459,7 +1468,15 @@ export default {
     empty_data_strategy: '空值处理',
     break_line: '线条断开',
     set_zero: '置为0,线条不断开',
-    ignore_data: '跳过空值,不展示'
+    ignore_data: '跳过空值,不展示',
+    sub_dimension_tip: '该字段为必填项，且不应使用类别轴中的字段，若无需该字段，请选择基础图表进行展示，否则展示效果不理想。',
+    drill_dimension_tip: '钻取字段仅支持数据集中的字段',
+    table_scroll_tip: '明细表仅在分页模式为"下拉"时生效。',
+    table_threshold_tip: '提示：请勿重复选择字段，若同一字段重复配置，则只有最后的字段配置生效',
+    table_column_width_tip: '列宽并非任何时候都能生效。容器宽度优先级高于列宽，即(表格容器宽度 / 列数 > 指定列宽)，则列宽优先取(容器宽度 / 列数)。',
+    reference_field_tip: '引用字段以 "[" 开始， "]" 结束。请勿修改引用内容，否则将引用失败。若输入与引用字段相同格式的内容，将被当作引用字段处理',
+    scatter_tip: '该指标生效时，样式大小中的气泡大小属性将失效',
+    place_name_mapping: '地名映射'
   },
   dataset: {
     spend_time: '耗时',
@@ -1721,7 +1738,17 @@ export default {
     export_dataset: '数据集导出',
     filename: '文件名称',
     export_filter: '筛选条件',
-    pls_input_filename: '请输入文件名称'
+    pls_input_filename: '请输入文件名称',
+    calc_tips: {
+      tip1: '表达式语法请遵循该数据源对应的数据库语法。',
+      tip2: '数据集中不支持聚合运算。',
+      tip3: '引用字段以 "[" 开始， "]" 结束',
+      tip4: '请勿修改引用内容，否则将引用失败',
+      tip5: '若输入与引用字段相同格式的内容，将被当作引用字段处理',
+      tip6: '使用数据集对应数据库类型所支持的函数，语法同对应数据库',
+      tip7: '如日期格式化：MySQL使用DATE_FORMAT(date,format)；Oracle使用TO_DATE(X,[,fmt])',
+      tip8: '非直连模式数据集，使用Doris数据库函数，可参考Doris官网'
+    }
   },
   driver: {
     driver: '驱动',
@@ -1890,7 +1917,7 @@ export default {
   },
   panel: {
     position_adjust_component: '位置调整',
-    active_font_size: '激活字体大小',
+    active_font_size: '选中字体大小',
     carousel: '轮播',
     switch_time: '切换时间',
     position_adjust: '位置',
@@ -2225,7 +2252,11 @@ export default {
     select_view: '请选择视图...',
     visual: '虚拟化',
     prohibit_multiple: '禁止同数据集多字段',
-    be_empty_dir: '是空目录！'
+    be_empty_dir: '是空目录！',
+    fold: '收起',
+    expand: '展开',
+    pdf_export: 'PDF 导出',
+    switch_pdf_template: '切换 PDF 模板'
   },
   plugin: {
     local_install: '本地安装',
@@ -2542,6 +2573,14 @@ export default {
 
   },
   emailtask: {
+    week_mon: '周一',
+    week_tue: '周二',
+    week_wed: '周三',
+    week_thu: '周四',
+    week_fri: '周五',
+    week_sat: '周六',
+    week_sun: '周日',
+    send_config: '发送设置',
     title: '报告主题',
     panel: '仪表板',
     content: '报告正文',
@@ -2566,9 +2605,9 @@ export default {
     emial_preview: '报告预览',
     chart_data_range: '视图数据范围',
     simple_repeat: '简单重复',
-    once_a_day: '每天一次',
-    once_a_week: '每周一次',
-    once_a_month: '每月一次',
+    once_a_day: '每天',
+    once_a_week: '每周',
+    once_a_month: '每月',
     complex_repeat: '复杂重复',
     pixel_tip: '可直接输入自定义分辨率(例如:2560 * 1600)或选择',
     task_type: '任务类型',

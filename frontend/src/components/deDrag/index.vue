@@ -40,6 +40,7 @@
         :canvas-id="canvasId"
         :element="element"
         :chart="chart"
+        :series-id-map="seriesIdMap"
         @showViewDetails="showViewDetails"
         @amRemoveItem="amRemoveItem"
         @amAddItem="amAddItem"
@@ -431,7 +432,10 @@ export default {
       // 是否移动 （如果没有移动 不需要记录snapshot）
       hasMove: false,
       // 上次的鼠标指针纵向位置，用来判断指针是上移还是下移
-      latestMoveY: 0
+      latestMoveY: 0,
+      seriesIdMap: {
+        id: ''
+      }
     }
   },
   computed: {
@@ -588,7 +592,7 @@ export default {
           return 'auto'
         }
       }
-      if (this.element.auxiliaryMatrix) {
+      if (this.element.auxiliaryMatrix && this.curCanvasScaleSelf) {
         const width = Math.round(this.width / this.curCanvasScaleSelf.matrixStyleWidth) * this.curCanvasScaleSelf.matrixStyleWidth
         return (width - this.curGap * 2) + 'px'
       } else {
@@ -602,7 +606,7 @@ export default {
           return 'auto'
         }
       }
-      if (this.element.auxiliaryMatrix) {
+      if (this.element.auxiliaryMatrix && this.curCanvasScaleSelf) {
         const height = Math.round(this.height / this.curCanvasScaleSelf.matrixStyleHeight) * this.curCanvasScaleSelf.matrixStyleHeight
         return (height - this.curGap * 2) + 'px'
       } else {

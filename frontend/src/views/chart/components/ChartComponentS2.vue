@@ -18,7 +18,7 @@
       :style="title_class"
       style="cursor: default;display: block;"
     >
-      <div style="padding:6px 4px 0;margin: 0;">
+      <div style="padding:4px 4px 0;margin: 0;">
         <chart-title-update
           :title-class="title_class"
           :chart-info="chartInfo"
@@ -61,19 +61,24 @@
           class="table-page"
           :style="autoStyle"
         >
-          <span class="total-style">
+          <span
+            class="total-style"
+            :style="totalStyle"
+          >
             {{ $t('chart.total') }}
             <span>{{
               chart.datasetMode === 0 ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
             }}</span>
             {{ $t('chart.items') }}
           </span>
-          <el-pagination
+          <de-pagination
             small
             :current-page="currentPage.page"
-            :page-sizes="[10,20,50,100]"
             :page-size="currentPage.pageSize"
             :pager-count="5"
+            :custom-style="{
+              color: title_class.color
+            }"
             layout="prev, pager, next"
             :total="currentPage.show"
             class="page-style"
@@ -95,10 +100,10 @@ import TitleRemark from '@/views/chart/view/TitleRemark'
 import { DEFAULT_TITLE_STYLE, NOT_SUPPORT_PAGE_DATASET } from '@/views/chart/chart/chart'
 import ChartTitleUpdate from './ChartTitleUpdate.vue'
 import { mapState } from 'vuex'
-
+import DePagination from '@/components/deCustomCm/pagination.js'
 export default {
   name: 'ChartComponentS2',
-  components: { TitleRemark, ViewTrackBar, ChartTitleUpdate },
+  components: { TitleRemark, ViewTrackBar, ChartTitleUpdate, DePagination },
   props: {
     chart: {
       type: Object,
@@ -165,6 +170,9 @@ export default {
       remarkCfg: {
         show: false,
         content: ''
+      },
+      totalStyle: {
+        color: '#606266'
       }
     }
   },
@@ -424,6 +432,8 @@ export default {
           this.title_class.fontFamily = customStyle.text.fontFamily ? customStyle.text.fontFamily : DEFAULT_TITLE_STYLE.fontFamily
           this.title_class.letterSpacing = (customStyle.text.letterSpace ? customStyle.text.letterSpace : DEFAULT_TITLE_STYLE.letterSpace) + 'px'
           this.title_class.textShadow = customStyle.text.fontShadow ? '2px 2px 4px' : 'none'
+          // 表格总计与分页颜色，取标题颜色
+          this.totalStyle.color = customStyle.text.color
         }
         if (customStyle.background) {
           this.title_class.background = hexColorToRGBA(customStyle.background.color, customStyle.background.alpha)

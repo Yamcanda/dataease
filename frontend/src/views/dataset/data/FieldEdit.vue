@@ -130,8 +130,8 @@
                 "
               >
                 <span style="font-size: 12px; color: #c0c0c0">{{
-                    $t('dataset.calc_field')
-                  }}</span>
+                  $t('dataset.calc_field')
+                }}</span>
               </span>
             </template>
           </el-table-column>
@@ -148,12 +148,11 @@
                 :disabled="!hasDataPermission('manage', param.privileges)"
                 class="select-type"
                 :options="getFields(scope.row)"
-                @visible-change="getPopPosition"
                 @change="saveEdit(scope.row)"
               >
                 <template slot-scope="{ node, data }">
                   <span
-                    v-if="node.level === 2"
+                    v-if="node.level === 2 && data.label === 'yyyy-MM-dd'"
                     class="format-title"
                     :style="popPosition"
                   >{{ $t('chart.date_format') }}</span>
@@ -180,8 +179,8 @@
                     />
                   </span>
                   <span style="color: #8492a6; font-size: 12px">{{
-                      data.label
-                    }}</span>
+                    data.label
+                  }}</span>
                 </template>
               </el-cascader>
               <span class="select-svg-icon">
@@ -284,8 +283,8 @@
                     v-if="scope.row.deExtractType === 3"
                     class="field-class"
                   >{{
-                      $t('dataset.value') + '(' + $t('dataset.float') + ')'
-                    }}</span>
+                    $t('dataset.value') + '(' + $t('dataset.float') + ')'
+                  }}</span>
                 </span>
                 <span v-if="scope.row.deExtractType === 5">
                   <svg-icon
@@ -308,8 +307,8 @@
                 "
               >
                 <span style="font-size: 12px; color: #c0c0c0">{{
-                    $t('dataset.calc_field')
-                  }}</span>
+                  $t('dataset.calc_field')
+                }}</span>
               </span>
             </template>
           </el-table-column>
@@ -356,7 +355,7 @@
                         "
                         command="copy"
                       >
-                        <i class="el-icon-document-copy"/>
+                        <i class="el-icon-document-copy" />
                         {{ $t('dataset.copy') }}
                       </el-dropdown-item>
                       <el-dropdown-item
@@ -365,7 +364,7 @@
                         "
                         command="delete"
                       >
-                        <i class="el-icon-delete"/>
+                        <i class="el-icon-delete" />
                         {{ $t('chart.delete') }}
                       </el-dropdown-item>
                     </slot>
@@ -470,8 +469,8 @@
                 "
               >
                 <span style="font-size: 12px; color: #c0c0c0">{{
-                    $t('dataset.calc_field')
-                  }}</span>
+                  $t('dataset.calc_field')
+                }}</span>
               </span>
             </template>
           </el-table-column>
@@ -488,12 +487,11 @@
                 :disabled="!hasDataPermission('manage', param.privileges)"
                 class="select-type"
                 :options="getFields(scope.row)"
-                @visible-change="getPopPosition"
                 @change="saveEdit(scope.row)"
               >
                 <template slot-scope="{ node, data }">
                   <span
-                    v-if="node.level === 2"
+                    v-if="node.level === 2 && data.label === 'yyyy-MM-dd'"
                     class="format-title"
                     :style="popPosition"
                   >{{ $t('chart.date_format') }}</span>
@@ -520,8 +518,8 @@
                     />
                   </span>
                   <span style="color: #8492a6; font-size: 12px">{{
-                      data.label
-                    }}</span>
+                    data.label
+                  }}</span>
                 </template>
               </el-cascader>
               <span class="select-svg-icon">
@@ -616,8 +614,8 @@
                     v-if="scope.row.deExtractType === 3"
                     class="field-class"
                   >{{
-                      $t('dataset.value') + '(' + $t('dataset.float') + ')'
-                    }}</span>
+                    $t('dataset.value') + '(' + $t('dataset.float') + ')'
+                  }}</span>
                 </span>
                 <span v-if="scope.row.deExtractType === 5">
                   <svg-icon
@@ -640,8 +638,8 @@
                 "
               >
                 <span style="font-size: 12px; color: #c0c0c0">{{
-                    $t('dataset.calc_field')
-                  }}</span>
+                  $t('dataset.calc_field')
+                }}</span>
               </span>
             </template>
           </el-table-column>
@@ -689,7 +687,7 @@
                         "
                         command="copy"
                       >
-                        <i class="el-icon-document-copy"/>
+                        <i class="el-icon-document-copy" />
                         {{ $t('dataset.copy') }}
                       </el-dropdown-item>
                       <el-dropdown-item
@@ -698,7 +696,7 @@
                         "
                         command="delete"
                       >
-                        <i class="el-icon-delete"/>
+                        <i class="el-icon-delete" />
                         {{ $t('chart.delete') }}
                       </el-dropdown-item>
                     </slot>
@@ -807,15 +805,6 @@ export default {
         that.maxHeight = currentHeight - 56 - 30 - 35 - 26 - 10 - 10 + 'px'
       }, 10)
     },
-    getPopPosition(val) {
-      if (!val) return
-      this.$nextTick(() => {
-        const list = document.querySelectorAll('body > .select-date-resolution-format')
-        const ele = list[list.length - 1]
-        const { top, left } = ele?.style
-        this.popPosition = { top: parseInt(top) - 18 + 'px', left: parseInt(left) + 181 + 'px', position: 'fixed' }
-      })
-    },
     initField() {
       fieldListDQ(this.param.id).then((response) => {
         this.tableFields = response.data
@@ -830,8 +819,7 @@ export default {
         this.quotaChange()
       })
       dateformats(this.param.id).then((response) => {
-
-        const children = (response?.data || []).map(ele => ({ label: ele.dateformat + ( ele.desc !== null ? ('(' + ele.desc) + ')' : ""), value: ele.dateformat }))
+        const children = (response?.data || []).map(ele => ({ label: ele.dateformat + (ele.desc !== null ? ('(' + ele.desc) + ')' : ''), value: ele.dateformat }))
         children.push({ label: this.$t('commons.custom'), value: 'custom' })
         this.dateformats = children
       })
@@ -871,8 +859,13 @@ export default {
         if (item.dateFormatType !== 'custom') {
           item.dateFormat = item.dateFormatType
         }
+      }else {
+        item.dateFormatType = ''
+        item.dateFormat = ''
       }
-
+      if (item.dateFormatType === 'custom' && !item.dateFormat) {
+        return
+      }
       post('/dataset/field/save', item)
         .then((response) => {
           this.initField()
@@ -907,7 +900,7 @@ export default {
       if (val && val !== '') {
         this.tableFields.dimensionListData = JSON.parse(
           JSON.stringify(
-            this.tableFields.dimensionListData.filter((ele) => {
+            this.tableFields.dimensionList.filter((ele) => {
               return ele.name
                 .toLocaleLowerCase()
                 .includes(val.toLocaleLowerCase())
@@ -1199,6 +1192,7 @@ span {
     position: fixed;
     display: inline-block;
     height: 30px;
+    transform: translate(-30px, -37px);
     background: #dfe6ec;
     width: 180px;
     padding-left: 30px;

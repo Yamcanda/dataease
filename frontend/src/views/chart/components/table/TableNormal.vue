@@ -49,19 +49,24 @@
             class="table-page-inner"
             :style="autoStyle"
           >
-            <span class="total-style">
+            <span
+              class="total-style"
+              :style="totalStyle"
+            >
               {{ $t('chart.total') }}
               <span>{{
                 chart.datasetMode === 0 ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
               }}</span>
               {{ $t('chart.items') }}
             </span>
-            <el-pagination
+            <de-pagination
               small
               :current-page="currentPage.page"
-              :page-sizes="[10,20,50,100]"
               :page-size="currentPage.pageSize"
               :pager-count="5"
+              :custom-style="{
+                color: title_class.color
+              }"
               layout="prev, pager, next"
               :total="currentPage.show"
               class="page-style"
@@ -81,9 +86,11 @@ import { hexColorToRGBA } from '../../chart/util'
 import eventBus from '@/components/canvas/utils/eventBus'
 import { DEFAULT_COLOR_CASE, DEFAULT_SIZE, NOT_SUPPORT_PAGE_DATASET } from '@/views/chart/chart/chart'
 import { mapState } from 'vuex'
+import DePagination from '@/components/deCustomCm/pagination.js'
 
 export default {
   name: 'TableNormal',
+  components: { DePagination },
   props: {
     chart: {
       type: Object,
@@ -156,7 +163,10 @@ export default {
       showIndex: false,
       indexLabel: '序号',
       scrollBarColor: DEFAULT_COLOR_CASE.tableScrollBarColor,
-      scrollBarHoverColor: DEFAULT_COLOR_CASE.tableScrollBarHoverColor
+      scrollBarHoverColor: DEFAULT_COLOR_CASE.tableScrollBarHoverColor,
+      totalStyle: {
+        color: '#606266'
+      }
     }
   },
   computed: {
@@ -361,6 +371,8 @@ export default {
           this.title_class.textAlign = customStyle.text.hPosition
           this.title_class.fontStyle = customStyle.text.isItalic ? 'italic' : 'normal'
           this.title_class.fontWeight = customStyle.text.isBolder ? 'bold' : 'normal'
+          // 表格总计与分页颜色，取标题颜色
+          this.totalStyle.color = customStyle.text.color
         }
         if (customStyle.background) {
           this.bg_class.background = hexColorToRGBA(customStyle.background.color, customStyle.background.alpha)

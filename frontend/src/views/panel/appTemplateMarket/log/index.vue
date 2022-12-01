@@ -1,5 +1,6 @@
 <template>
   <el-row
+    v-loading="$store.getters.loadingMap[$store.getters.currentPath]"
     style="text-align: left"
     class="de-search-table"
   >
@@ -87,7 +88,6 @@
     >
       <grid-table
         :ref="'grid-table'"
-        v-loading="$store.getters.loadingMap[$store.getters.currentPath]"
         :table-data="data"
         :columns="[]"
         :pagination="paginationConfig"
@@ -101,12 +101,7 @@
           :label="$t('app_template.datasource')"
         >
           <template #default="{ row }">
-            <span
-              v-if="row.datasourceId && hasDataPermission('use',row.datasourcePrivileges)"
-              class="link-span"
-              @click="goToDatasource(row)"
-            >{{ row.datasourceName }}</span>
-            <span v-else>{{ row.datasourceName }}</span>
+            <span>{{ row.datasourceName }}</span>
           </template>
         </el-table-column>
         <el-table-column
@@ -185,6 +180,7 @@
 
     <!--导入templatedialog-->
     <el-dialog
+      v-loading="$store.getters.loadingMap[$store.getters.currentPath]"
       :title="$t('app_template.log_delete_tips')"
       :visible.sync="deleteConfirmDialog"
       :show-close="true"
@@ -217,10 +213,7 @@ import GridTable from '@/components/gridTable/index.vue'
 import filterUser from './FilterUser'
 import _ from 'lodash'
 import keyEnter from '@/components/msgCfm/keyEnter.js'
-import {
-  addOrder,
-  formatOrders
-} from '@/utils/index'
+import { addOrder, formatOrders } from '@/utils/index'
 import { deleteLogAndResource, logGrid } from '@/api/appTemplateMarket/log'
 import { findOneWithParent } from '@/api/panel/panel'
 import AppTemplateApply from '@/views/panel/appTemplate/component/AppTemplateApply'
@@ -288,9 +281,24 @@ export default {
       this.deleteConfirmDialog = false
     },
     confirmDel() {
-      deleteLogAndResource(this.deleteItemInfo).then(() => {
-        this.closeDel()
-        this.search()
+      const _this = this
+      deleteLogAndResource(_this.deleteItemInfo).then(() => {
+        if (_this.deleteItemInfo.deleteResource) {
+          _this.clearLocalStorage()
+        }
+        _this.closeDel()
+        _this.search()
+      })
+    },
+    clearLocalStorage() {
+      const clearParams = [
+        'panel-main-tree',
+        'panel-default-tree',
+        'chart-tree',
+        'dataset-tree'
+      ]
+      clearParams.forEach(item => {
+        localStorage.removeItem(item)
       })
     },
     closeDraw() {
