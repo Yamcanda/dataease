@@ -12,11 +12,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Value("${geo.custom.rootpath:file:/opt/dataease/data/custom/}")
     private String geoPath;
-
+    
+    @Value("${dataease.static.resource:/opt/dataease/data/static-resource/}")
+	private String staticResource;
+    
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-
         registry.addResourceHandler("/geo/**").addResourceLocations(geoPath);
+        registry.addResourceHandler("/static-resource/**").addResourceLocations("file:///" + staticResource);
     }
     
     @Override
