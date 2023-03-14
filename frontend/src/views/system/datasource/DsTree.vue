@@ -173,6 +173,13 @@
                         <i class="el-icon-edit" />
                         {{ $t('chart.edit') }}
                       </el-dropdown-item>
+                      <el-dropdown-item command="copy" v-show="showView === 'Datasource'">
+                        <svg-icon
+                          icon-class="de-copy"
+                          class="de-copy-icon"
+                        />
+                        {{ $t('commons.copy') }}
+                      </el-dropdown-item>
                       <el-dropdown-item command="delete">
                         <i class="el-icon-delete" />
                         {{ $t('chart.delete') }}
@@ -255,7 +262,7 @@
         v-dialogDrag
         :title="$t('datasource.create')"
         :visible.sync="dsTypeRelate"
-        width="1005px"
+        width="1010px"
         class="de-dialog-form none-scroll-bar"
         append-to-body
       >
@@ -265,12 +272,16 @@
           @tab-click="handleClick"
         >
           <el-tab-pane
-            :label="$t('datasource.relational_database')"
-            name="RDBMS"
+            label="OLTP"
+            name="OLTP"
           />
           <el-tab-pane
-            :label="$t('datasource.non_relational_database')"
-            name="NORDBMS"
+            label="OLAP"
+            name="OLAP"
+          />
+          <el-tab-pane
+            :label="$t('datasource.data_warehouse_lake')"
+            name="dataWarehouseLake"
           />
           <el-tab-pane
             :label="$t('datasource.other')"
@@ -281,9 +292,9 @@
           <template v-for="(list, idx) in databaseList">
             <div
               :key="nameMap[idx]"
-              :class="typeList[idx]"
+              :class="nameMap[idx]"
               class="name"
-            >{{ $t(`datasource.${nameMap[idx]}`) }}</div>
+            >{{ nameClassMap[idx] }}</div>
             <div
               :key="nameMap[idx] + 'cont'"
               class="item-container"
@@ -316,6 +327,7 @@
 <script>
 import { mapGetters } from 'vuex'
 import i18n from '@/lang'
+import { Base64 } from 'js-base64'
 import {
   listDatasource,
   listDatasourceByType,
@@ -327,8 +339,12 @@ import {
   listDriverByType,
   updateDriver
 } from '@/api/system/datasource'
+import { getDatasourceRelationship } from '@/api/chart/chart.js'
+
+import msgContent from './MsgContent.vue'
 import deTextarea from '@/components/deCustomCm/DeTextarea.vue'
 import msgCfm from '@/components/msgCfm'
+import { checkPermission } from '@/utils/permission'
 export default {
   name: 'DsTree',
   components: { deTextarea },
@@ -341,14 +357,16 @@ export default {
   },
   data() {
     return {
-      tabActive: 'RDBMS',
+      tabActive: 'OLTP',
+      treeData: [],
       databaseList: [],
       currentNodeId: '',
       dsTypeRelate: false,
       expandedArray: [],
       tData: [],
-      nameMap: ['relational_database', 'non_relational_database', 'other'],
-      typeList: ['RDBMS', 'NORDBMS', 'OTHER'],
+      nameMap: ['OLTP', 'OLAP', 'dataWarehouseLake', 'OTHER'],
+      nameClassMap: ['OLTP', 'OLAP', this.$t(`datasource.data_warehouse_lake`), this.$t(`datasource.other`)],
+      typeList: ['OLTP', 'OLAP', 'DL', 'OTHER'],
       treeLoading: false,
       dsTypes: [],
       dsTypesForDriver: [],
@@ -413,6 +431,26 @@ export default {
     this.datasourceTypes()
   },
   methods: {
+    getDatasourceRelationship({ queryType, label, id }) {
+     return getDatasourceRelationship(id).then((res) => {
+        const arr = res.data || []
+        this.treeData = []
+        this.dfsTree(arr, { queryType, label })
+      })
+    },
+    dfsTree(arr = [], { queryType, label }, item) {
+      arr.forEach((ele) => {
+        const { name, type, subRelation = [] } = ele
+        const obj = {}
+        obj[type] = name
+        obj[queryType] = label
+        if (subRelation.length) {
+          this.dfsTree(subRelation, { queryType: type, label: name }, obj)
+        } else {
+          this.treeData.push({ ...item, ...obj })
+        }
+      })
+    },
     handleClick() {
       document.querySelector(`.${this.tabActive}`).scrollIntoView()
     },
@@ -488,7 +526,7 @@ export default {
     datasourceTypes() {
       listDatasourceType().then((res) => {
         this.dsTypes = res.data
-        const databaseList = [[], [], []]
+        const databaseList = [[], [], [], []]
         this.dsTypes.forEach((item) => {
           const index = this.typeList.findIndex(ele => ele === item.databaseClassification)
           if (index !== -1) {
@@ -498,12 +536,15 @@ export default {
             this.dsTypesForDriver.push(item)
           }
         })
-        this.databaseList = databaseList
+        this.databaseList = databaseList.map(ele => {
+          return ele.sort((a, b) => {
+            return a.name.toLowerCase().charCodeAt(0) - b.name.toLowerCase().charCodeAt(0)
+          })
+        })
       })
     },
     refreshType(datasource) {
-      const method =
-        this.showView === 'Datasource' ? listDatasourceByType : listDriverByType
+      const method = this.showView === 'Datasource' ? listDatasourceByType : listDriverByType
       let typeData = []
       method(datasource.type).then((res) => {
         typeData = this.buildTree(res.data)
@@ -531,6 +572,11 @@ export default {
             this.tData.push(typeData[0])
           }
         }
+
+        if (!this.key) return
+        this.$nextTick(() => {
+          this.$refs.myDsTree.filter(this.key)
+        })
       })
     },
     buildTree(array = []) {
@@ -538,6 +584,12 @@ export default {
       const newArr = []
       for (let index = 0; index < array.length; index++) {
         const element = array[index]
+        if (element.configuration) {
+          element.configuration = Base64.decode(element.configuration)
+        }
+        if (element.apiConfigurationStr) {
+          element.apiConfiguration = JSON.parse(Base64.decode(element.apiConfigurationStr))
+        }
         if (this.msgNodeId) {
           if (element.id === this.msgNodeId) {
             element.msgNode = true
@@ -640,6 +692,9 @@ export default {
         case 'edit':
           this._handleEditer(data)
           break
+        case 'copy':
+          this._handleCopy(data)
+          break
         case 'delete':
           this._handleDelete(data)
           break
@@ -649,8 +704,8 @@ export default {
     },
     _handleEditer(row) {
       if (this.showView === 'Datasource') {
-        const param = { ...row, ...{ showModel: 'show' }}
-        this.switchMain('DsForm', param, this.tData, this.dsTypes)
+        const param = { ...row, ...{ showModel: 'show', editor: 'editor' }}
+        this.switchMain('dsTable', param, this.tData, this.dsTypes)
         this.currentNodeId && sessionStorage.setItem('datasource-current-node', this.currentNodeId)
         return
       }
@@ -658,7 +713,18 @@ export default {
       this.dialogTitle = this.$t('datasource.edit_driver')
       this.driverForm = { ...row }
     },
-    _handleDelete(datasource) {
+    _handleCopy(row){
+      if (this.showView === 'Datasource') {
+        const param = { ...row, ...{ showModel: 'copy' }}
+        this.switchMain('DsForm', param, this.tData, this.dsTypes)
+        this.currentNodeId && sessionStorage.setItem('datasource-current-node', this.currentNodeId)
+        return
+      }
+      this.editDriver = true
+      this.dialogTitle = this.$t('commons.copy')
+      this.driverForm = { ...row }
+    },
+    async _handleDelete(datasource) {
       const params = {
         title:
           this.showView === 'Datasource'
@@ -685,9 +751,43 @@ export default {
           })
         }
       }
+      const { queryType = 'datasource', name: label, id } = datasource
+      if (this.showView === 'Datasource') {
+        if (checkPermission(['relationship:read'])) {
+          await this.getDatasourceRelationship({ queryType, label, id })
+          if (this.treeData.length) {
+            params.title = this.$t('datasource.this_data_source')
+            params.link = this.$t('datasource.click_to_check')
+            params.content = this.$t('datasource.cannot_be_deleted_datasource')
+            params.templateDel = msgContent
+            params.linkTo = this.linkTo.bind(this, { queryType, id, name: label })
+            this.withLink(params)
+            return
+          }
+        }
+      }
       this.handlerConfirm(params)
     },
+    linkTo(query) {
+      window.open(this.$router.resolve({
+        path: '/system/relationship',
+        query
+      }).href, '_blank')
+    },
     switchMain(component, componentParam, tData, dsTypes) {
+      if (component === 'dsTable') {
+        this.$emit('switch-main', {
+          component,
+          componentParam: {
+            ...componentParam,
+            msgNodeId: this.msgNodeId
+          },
+          tData,
+          dsTypes
+        })
+        return
+      }
+
       if (component === 'DsForm') {
         const { id, type, showModel } = componentParam
         this.$router.push({
@@ -869,5 +969,10 @@ export default {
   .marLeft {
     margin-left: 0;
   }
+}
+.de-copy-icon {
+  cursor: pointer;
+  margin-right: 5px;
+  color: var(--deTextSecondary, #646a73);
 }
 </style>

@@ -1,5 +1,6 @@
 package io.dataease.controller.request.panel;
 
+import io.dataease.controller.request.chart.ChartExtRequest;
 import lombok.Data;
 
 import java.util.List;
@@ -20,7 +21,7 @@ public class PanelViewDetailsRequest {
 
     private Integer[] excelTypes;
 
-    private List<String[]> details;
+    private List<Object[]> details;
 
     private String snapshot;
 
@@ -28,6 +29,10 @@ public class PanelViewDetailsRequest {
 
     private int snapshotHeight;
 
+    private ViewDetailField[] detailFields;
 
+    private ChartExtRequest componentFilterInfo;
+
+    private List<String> excelHeaderKeys;
 
 }

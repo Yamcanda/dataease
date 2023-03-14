@@ -174,7 +174,7 @@
                   />
                 </span>
                 <span v-if="data.nodeType === 'folder'">
-                  <svg-icon icon-class="scene" />
+                  <svg-icon icon-class="scene"/>
                 </span>
                 <span
                   :class="data.status"
@@ -211,7 +211,7 @@
                       <el-dropdown-item
                         :command="beforeClickEdit('folder', 'new', data, node)"
                       >
-                        <svg-icon icon-class="scene" />
+                        <svg-icon icon-class="scene"/>
                         <span style="margin-left: 5px">{{ $t('panel.groupAdd') }}</span>
                       </el-dropdown-item>
                       <el-dropdown-item
@@ -334,7 +334,7 @@
             :label="$t('commons.name')"
             prop="name"
           >
-            <el-input v-model="groupForm.name" />
+            <el-input v-model="groupForm.name"/>
           </el-form-item>
         </el-form>
         <div
@@ -345,8 +345,8 @@
             size="mini"
             @click="close()"
           >{{
-            $t('panel.cancel')
-          }}
+              $t('panel.cancel')
+            }}
           </el-button>
           <el-button
             type="primary"
@@ -422,8 +422,8 @@
             size="mini"
             @click="closeMoveGroup()"
           >{{
-            $t('dataset.cancel')
-          }}
+              $t('dataset.cancel')
+            }}
           </el-button>
           <el-button
             :disabled="groupMoveConfirmDisabled"
@@ -458,16 +458,19 @@ import { mapState } from 'vuex'
 import { DEFAULT_COMMON_CANVAS_STYLE_STRING } from '@/views/panel/panel'
 import TreeSelector from '@/components/treeSelector'
 import { queryAuthModel } from '@/api/authModel/authModel'
+import msgCfm from '@/components/msgCfm/index'
+import { updateCacheTree } from '@/components/canvas/utils/utils'
 
 export default {
   name: 'PanelList',
   components: { GrantAuth, LinkGenerate, EditPanel, TreeSelector },
+  mixins: [msgCfm],
   data() {
     return {
       lastActiveDefaultPanelId: null, // 激活的节点 在这个节点下面动态放置子节点
       responseSource: 'panelQuery',
       defaultExpansion: false,
-      clearLocalStorage: ['chart-tree', 'dataset-tree'],
+      clearLocalStorage: ['dataset-tree'],
       historyRequestId: null,
       lastActiveNode: null, // 激活的节点 在这个节点下面动态放置子节点
       lastActiveNodeData: null,
@@ -576,7 +579,7 @@ export default {
         all: this.$t('commons.all'),
         folder: this.$t('commons.folder')
       },
-      initLocalStorage: ['chart', 'dataset']
+      initLocalStorage: ['dataset']
     }
   },
   computed: {
@@ -609,7 +612,6 @@ export default {
     }
   },
   beforeDestroy() {
-    bus.$off('newPanelFromMarket', this.newPanelFromMarket)
   },
   mounted() {
     this.clearCanvas()
@@ -635,6 +637,11 @@ export default {
     }
   },
   methods: {
+    activeLastNode() {
+      this.$nextTick(() => {
+        document.querySelector('.is-current').firstChild.click()
+      })
+    },
     toTop(data, node) {
       panelToTop(data.id).then(() => {
         this.defaultTree()
@@ -647,18 +654,12 @@ export default {
       })
       this.responseSource = 'panelQuery'
     },
-    newPanelFromMarket(panelInfo) {
-      if (panelInfo) {
-        this.tree()
-        this.edit(panelInfo, null)
-      }
-    },
     initCache() {
       // 初始化时提前加载视图和数据集的缓存
       this.initLocalStorage.forEach((item) => {
         if (!localStorage.getItem(item + '-tree')) {
           queryAuthModel({ modelType: item }, false).then((res) => {
-            localStorage.setItem(item + '-tree', JSON.stringify(res.data))
+            localStorage.setItem(item + '-tree', JSON.stringify(res.data || []))
           })
         }
       })
@@ -666,8 +667,10 @@ export default {
     closeEditPanelDialog(panelInfo) {
       this.editPanel.visible = false
       if (panelInfo) {
-        this.defaultTree(false)
-        this.tree()
+        if (this.editPanel.optType === 'toDefaultPanel') {
+          this.defaultTree(false)
+        }
+        updateCacheTree(this.editPanel.optType, 'panel-main-tree', panelInfo, this.tData)
         if (this.editPanel.optType === 'rename' && panelInfo.id === this.$store.state.panel.panelInfo.id) {
           this.$store.state.panel.panelInfo.name = panelInfo.name
         }
@@ -682,13 +685,7 @@ export default {
             return
           }
           // 复制后的仪表板 放在父节点下面
-          if (this.editPanel.optType === 'copy') {
-            this.lastActiveNode.parent.data.children.push(panelInfo)
-          } else {
-            if (!this.lastActiveNodeData.children) {
-              this.$set(this.lastActiveNodeData, 'children', [])
-            }
-            this.lastActiveNodeData.children.push(panelInfo)
+          if (this.editPanel.optType !== 'copy') {
             this.lastActiveNode.expanded = true
           }
           this.activeNodeAndClick(panelInfo)
@@ -738,6 +735,7 @@ export default {
           this.editPanel = {
             visible: true,
             titlePre: this.$t('panel.to_default'),
+            optType: 'toDefaultPanel',
             panelInfo: {
               id: param.data.id,
               name: param.data.name,
@@ -851,12 +849,10 @@ export default {
     },
 
     delete(data) {
-      this.$confirm(this.$t('panel.confirm_delete'), this.$t('panel.tips'), {
-        confirmButtonText: this.$t('panel.confirm'),
-        cancelButtonText: this.$t('panel.cancel'),
-        type: 'warning'
-      })
-        .then(() => {
+      const params = {
+        title: 'commons.delete_this_dashboard',
+        type: 'danger',
+        cb: () => {
           delGroup(data.id).then((response) => {
             this.$message({
               type: 'success',
@@ -864,12 +860,12 @@ export default {
               showClose: true
             })
             this.clearCanvas()
-            this.tree()
+            updateCacheTree('delete', 'panel-main-tree', data.id, this.tData)
             this.defaultTree(false)
           })
-        })
-        .catch(() => {
-        })
+        }
+      }
+      this.handlerConfirm(params, this.$t('commons.delete'))
     },
 
     clearCanvas() {
@@ -901,7 +897,7 @@ export default {
         this.tData = JSON.parse(modelInfo)
       }
       groupTree(this.groupForm, !userCache).then((res) => {
-        localStorage.setItem('panel-main-tree', JSON.stringify(res.data))
+        localStorage.setItem('panel-main-tree', JSON.stringify(res.data || []))
         if (!userCache) {
           this.tData = res.data
         }
@@ -932,7 +928,7 @@ export default {
       defaultTree(requestInfo, false).then((res) => {
         localStorage.setItem('panel-default-tree', JSON.stringify(res.data))
         if (!userCache) {
-          this.defaultData = res.data
+          this.defaultData = res.data || []
           if (showFirst && this.defaultData && this.defaultData.length > 0) {
             this.activeDefaultNodeAndClickOnly(this.defaultData[0].id)
           }
@@ -1049,7 +1045,7 @@ export default {
           _this.$nextTick(() => {
             document.querySelector('.is-current').firstChild.click()
             // 如果是仪表板列表的仪表板 直接进入编辑界面
-            if (panelInfo.nodeType === 'panel') {
+            if (panelInfo.nodeType === 'panel' && this.editPanel.optType !== 'copy') {
               _this.edit(this.lastActiveNodeData, this.lastActiveNode)
             }
           })
@@ -1104,11 +1100,11 @@ export default {
               id: 'panel_list',
               name: _this.$t('panel.panel_list'),
               label: _this.$t('panel.panel_list'),
-              children: res.data
+              children: res.data || []
             }
           ]
         } else {
-          _this.tGroupData = res.data
+          _this.tGroupData = res.data || []
         }
         _this.moveGroup = true
       })
@@ -1121,7 +1117,7 @@ export default {
       this.moveInfo.pid = this.tGroup.id
       this.moveInfo['optType'] = 'move'
       panelUpdate(this.moveInfo).then((response) => {
-        this.tree()
+        updateCacheTree('move', 'panel-main-tree', response.data, this.tData)
         this.closeMoveGroup()
       })
     },

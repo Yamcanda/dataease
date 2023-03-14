@@ -48,7 +48,6 @@
                 :element="element"
                 :in-draw="inDraw"
                 :in-screen="inScreen"
-                :size="sizeInfo"
               />
             </div>
           </div>
@@ -97,10 +96,16 @@ export default {
     isRelation: {
       type: Boolean,
       default: false
+    },
+    searchCount: {
+      type: Number,
+      required: false,
+      default: 0
     }
   },
   data() {
     return {
+      needRefreshComponents: ['de-select', 'de-select-grid', 'de-select-tree'],
       inputMaxSize: 46,
       inputLargeSize: 42,
       inputSmallSize: 38,
@@ -127,17 +132,6 @@ export default {
         transform: 'scale(' + this.scale + ')'
       }
     },
-    sizeInfo() {
-      let size
-      if (this.duHeight > this.inputLargeSize) {
-        size = 'medium'
-      } else if (this.duHeight > this.inputSmallSize) {
-        size = 'small'
-      } else {
-        size = 'mini'
-      }
-      return size
-    },
     deSelectGridBg() {
       if (this.element.component !== 'de-select-grid') return null
       const { backgroundColorSelect, color } = this.element.commonBackground
@@ -150,6 +144,7 @@ export default {
       return ['de-select', 'de-select-grid', 'de-date', 'de-input-search', 'de-number-range', 'de-select-tree'].includes(this.element.component)
     },
     ...mapState([
+      'curComponent',
       'previewCanvasScale'
     ])
   },
@@ -160,6 +155,13 @@ export default {
       },
       deep: true,
       immediate: true
+    },
+    // 监听外部计时器变化
+    searchCount: function(val1) {
+      // 正在操作的组件不进行刷新
+      if (val1 > 0 && this.needRefreshComponents.includes(this.element.component) && (!this.curComponent || this.curComponent.id !== this.element.id)) {
+        this.$refs['deOutWidget'].refreshLoad()
+      }
     }
   },
   mounted() {
@@ -173,6 +175,12 @@ export default {
     this.$set(this.element.style, 'innerBgColor', innerBgColor || '')
   },
   methods: {
+    getComponentId() {
+      return this.element.id
+    },
+    getCanvasId() {
+      return this.canvasId
+    },
     handlerPositionChange(val) {
       const { horizontal = 'left', vertical = 'center' } = val
       this.titleStyle = {
@@ -180,14 +188,19 @@ export default {
         textAlign: horizontal
       }
       this.outsideStyle = {
-        flexWrap: 'wrap'
+        flexDirection: 'column'
       }
+
       if (vertical !== 'top' && this.element.component !== 'de-select-grid') {
         this.titleStyle = null
         this.outsideStyle = {
           flexDirection: horizontal === 'right' ? 'row-reverse' : '',
           alignItems: 'center'
         }
+      }
+
+      if (this.element.component === 'de-select-grid') {
+        this.$set(this.outsideStyle, 'flexDirection', 'column')
       }
 
       if (vertical !== 'top' && this.element.component === 'de-number-range') {
@@ -222,9 +235,9 @@ export default {
   left: 0px;
 }
 
-.ccondition-main {
+.condition-main {
   position: absolute;
-  overflow: auto;
+  overflow: hidden;
   top: 0px;
   right: 0px;
   bottom: 0px;
@@ -253,7 +266,6 @@ export default {
 
 .condition-content-container {
   position: relative;
-  display: table;
   width: 100%;
   height: 100%;
   white-space: nowrap;
@@ -261,8 +273,6 @@ export default {
 
 .first-element {
   position: relative;
-  display: table-cell;
-  vertical-align: middle;
   margin: 0px;
   padding: 0px;
   height: 100%;
@@ -281,10 +291,16 @@ export default {
   align-items: flex-end;
 }
 
+.first-element-container ::v-deep .el-input__inner {
+  height: 40px !important;
+  line-height: 40px !important;
+}
+
 .first-element-grid-container {
   background: #fff;
   border: 1px solid #d7dae2;
   top: 5px;
+  height: 100%;
 }
 
 .condition-main-line {

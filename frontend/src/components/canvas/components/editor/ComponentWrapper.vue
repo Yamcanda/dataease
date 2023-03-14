@@ -44,6 +44,7 @@
         :in-screen="inScreen"
         :edit-mode="'preview'"
         :h="config.style.height"
+        :search-count="searchCount"
         :canvas-id="canvasId"
       />
       <component
@@ -203,7 +204,7 @@ export default {
       return style
     },
     componentActiveFlag() {
-      return !this.mobileLayoutStatus && ((this.curComponent && this.config.id === this.curComponent.id && !this.previewVisible && !this.showPosition.includes('email-task')) || this.showPosition.includes('multiplexing'))
+      return (!this.mobileLayoutStatus || this.terminal === 'mobile') && ((this.curComponent && this.config.id === this.curComponent.id && !this.previewVisible && !this.showPosition.includes('email-task')) || this.showPosition.includes('multiplexing'))
     },
     scale() {
       return Math.min(this.previewCanvasScale.scalePointWidth, this.previewCanvasScale.scalePointHeight)
@@ -222,10 +223,18 @@ export default {
     runAnimation(this.$el, this.config.animations)
   },
   methods: {
-    setChartData(chart) {
-      this.chart = chart
+    getComponentId() {
+      return this.config.id
     },
-    getStyle,
+    getCanvasId() {
+      return this.canvasId
+    },
+    getType() {
+      return this.config.type
+    },
+    getWrapperChildRefs() {
+      return this.$refs.wrapperChild.getWrapperChildRefs()
+    },
     getShapeStyleIntDeDrag(style, prop) {
       if (prop === 'rotate') {
         return style['rotate']
@@ -278,7 +287,7 @@ export default {
       } else {
         return {
           ...
-          getStyle(style, ['top', 'left', 'width', 'height', 'rotate']),
+            getStyle(style, ['top', 'left', 'width', 'height', 'rotate']),
           position: 'relative'
         }
       }
@@ -304,7 +313,6 @@ export default {
       setTimeout(() => {
         _this.$store.commit('setCurComponent', { component: _this.config, index: _this.index })
       }, 200)
-
     },
     showViewDetails(params) {
       this.$refs.wrapperChild.openChartDetailsDialog(params)

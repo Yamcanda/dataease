@@ -127,10 +127,17 @@ export const DEFAULT_SIZE = {
   symbolOpacity: 0.7,
   symbolStrokeWidth: 2,
   showIndex: false,
-  indexLabel: '序号'
+  indexLabel: '序号',
+  hPosition: 'center',
+  vPosition: 'center'
 }
 export const DEFAULT_SUSPENSION = {
   show: true
+}
+
+export const DEFAULT_MARK = {
+  fieldId: '',
+  conditions: []
 }
 export const DEFAULT_LABEL = {
   show: false,
@@ -449,7 +456,8 @@ export const DEFAULT_FUNCTION_CFG = {
 export const DEFAULT_THRESHOLD = {
   gaugeThreshold: '',
   labelThreshold: [],
-  tableThreshold: []
+  tableThreshold: [],
+  textLabelThreshold: []
 }
 export const DEFAULT_SCROLL = {
   open: false,
@@ -501,12 +509,14 @@ export const BASE_BAR = {
     },
     {
       type: 'inside',
+      disabled: true,
       xAxisIndex: [0],
       start: 0,
       end: 100
     },
     {
       type: 'inside',
+      disabled: true,
       yAxisIndex: [0],
       start: 0,
       end: 100
@@ -557,12 +567,14 @@ export const HORIZONTAL_BAR = {
     },
     {
       type: 'inside',
+      disabled: true,
       xAxisIndex: [0],
       start: 0,
       end: 100
     },
     {
       type: 'inside',
+      disabled: true,
       yAxisIndex: [0],
       start: 0,
       end: 100
@@ -615,12 +627,14 @@ export const BASE_LINE = {
     },
     {
       type: 'inside',
+      disabled: true,
       xAxisIndex: [0],
       start: 0,
       end: 100
     },
     {
       type: 'inside',
+      disabled: true,
       yAxisIndex: [0],
       start: 0,
       end: 100
@@ -891,20 +905,32 @@ export const BASE_MAP = {
     inRange: {
       color: ['lightskyblue', 'yellow', 'orangered']
     },
+    seriesIndex: 0,
     textStyle: {},
     right: 0
+  },
+  geo: {
+    map: 'MAP',
+    roam: false,
+    nameMap: {},
+    itemStyle: {
+      normal: {},
+      emphasis: {
+        label: {
+          show: false
+        }
+      }
+    }
   },
   series: [
     {
       name: '',
       type: 'map',
-      map: 'MAP',
+      geoIndex: 0,
       roam: true,
       data: [],
       itemStyle: {
-        normal: {
-
-        },
+        normal: {},
         emphasis: {
           label: {
             show: false
@@ -960,12 +986,14 @@ export const BASE_SCATTER = {
     },
     {
       type: 'inside',
+      disabled: true,
       xAxisIndex: [0],
       start: 0,
       end: 100
     },
     {
       type: 'inside',
+      disabled: true,
       yAxisIndex: [0],
       start: 0,
       end: 100
@@ -995,6 +1023,7 @@ export const BASE_TREEMAP = {
     {
       // name: '',
       type: 'treemap',
+      roam: true,
       itemStyle: {
         gapWidth: 2
       },
@@ -1055,12 +1084,14 @@ export const BASE_MIX = {
     },
     {
       type: 'inside',
+      disabled: true,
       xAxisIndex: [0],
       start: 0,
       end: 100
     },
     {
       type: 'inside',
+      disabled: true,
       yAxisIndex: [0],
       start: 0,
       end: 100
@@ -1108,4 +1139,6 @@ export const CHART_FONT_LETTER_SPACE = [
   { name: '10px', value: '10' }
 ]
 
-export const NOT_SUPPORT_PAGE_DATASET = ['kylin', 'sqlServer', 'es', 'presto', 'ds_doris', 'StarRocks']
+export const NOT_SUPPORT_PAGE_DATASET = ['kylin', 'sqlServer', 'es', 'presto', 'ds_doris', 'StarRocks', 'impala']
+
+export const SUPPORT_Y_M = ['y', 'y_M', 'y_M_d']

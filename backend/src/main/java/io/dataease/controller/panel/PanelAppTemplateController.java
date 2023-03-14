@@ -8,6 +8,7 @@ import io.dataease.service.panel.PanelAppTemplateService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.web.bind.annotation.*;
+
 import javax.annotation.Resource;
 import java.util.List;
 
@@ -16,7 +17,7 @@ import java.util.List;
  * Date: 2022/9/8
  * Description:
  */
-@Api(tags = "仪表板：应该关系")
+@Api(tags = "仪表板：应用关系")
 @ApiSupport(order = 170)
 @RestController
 @RequestMapping("appTemplate")
@@ -57,7 +58,14 @@ public class PanelAppTemplateController {
     @PostMapping("/nameCheck")
     @I18n
     public String nameCheck(@RequestBody PanelAppTemplateRequest request) {
-            return panelAppTemplateService.nameCheck(request);
+        return panelAppTemplateService.nameCheck(request);
+    }
+
+    @ApiOperation("移动")
+    @PostMapping("/move")
+    @I18n
+    public void move(@RequestBody PanelAppTemplateRequest request) {
+        panelAppTemplateService.move(request);
     }
 
 }

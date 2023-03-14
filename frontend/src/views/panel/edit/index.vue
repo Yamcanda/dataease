@@ -165,12 +165,12 @@
               v-show=" show &&showIndex===1"
               :canvas-id="canvasId"
             />
-            <subject-setting v-show=" show &&showIndex===2" />
-            <assist-component v-show=" show &&showIndex===3" />
+            <subject-setting v-show=" show &&showIndex===2"/>
+            <assist-component v-show=" show &&showIndex===3"/>
           </div>
         </el-drawer>
         <!--PC端画布区域-->
-        <canvas-opt-bar v-if="!previewVisible&&!mobileLayoutStatus" />
+        <canvas-opt-bar v-if="!previewVisible&&!mobileLayoutStatus"/>
         <de-canvas
           v-if="!previewVisible&&!mobileLayoutStatus"
           ref="canvasMainRef"
@@ -196,7 +196,7 @@
               :style="customCanvasMobileStyle"
               class="this_mobile_canvas"
             >
-              <el-row class="this_mobile_canvas_top" />
+              <el-row class="this_mobile_canvas_top"/>
               <el-row class="this_mobile_canvas_inner_top">
                 {{ panelInfo.name }}
               </el-row>
@@ -205,7 +205,7 @@
                 class="this_mobile_canvas_main"
                 :style="mobileCanvasStyle"
               >
-                <canvas-opt-bar v-if="!previewVisible&&mobileLayoutStatus" />
+                <canvas-opt-bar v-if="!previewVisible&&mobileLayoutStatus"/>
                 <de-canvas
                   v-if="!previewVisible&&mobileLayoutStatus"
                   ref="canvasMainRef"
@@ -243,14 +243,14 @@
                   />
                 </el-col>
               </el-row>
-              <el-row class="this_mobile_canvas_bottom" />
+              <el-row class="this_mobile_canvas_bottom"/>
             </div>
           </el-col>
           <el-col
             :span="16"
             class="this_mobile_canvas_cell this_mobile_canvas_wait_cell"
           >
-            <component-wait />
+            <component-wait/>
           </el-col>
         </el-row>
       </de-main-container>
@@ -268,7 +268,7 @@
           />
         </div>
         <div v-if="showBatchViewToolsAside">
-          <chart-style-batch-set />
+          <chart-style-batch-set/>
         </div>
         <div v-if="!showViewToolsAside&&!showBatchViewToolsAside">
           <el-row style="height: 40px">
@@ -287,12 +287,14 @@
             >{{ $t('panel.position_adjust') }}</span>
           </el-row>
           <el-row>
-            <position-adjust v-if="curComponent&&!curComponent.auxiliaryMatrix" />
+            <position-adjust v-if="curComponent&&!curComponent.auxiliaryMatrix"/>
             <div
               v-else
               class="view-selected-message-class"
             >
-              <span style="font-size: 14px;margin-left: 10px;font-weight: bold;line-height: 20px">{{ $t('panel.select_view') }}</span>
+              <span style="font-size: 14px;margin-left: 10px;font-weight: bold;line-height: 20px">
+                {{ $t('panel.select_view') }}
+              </span>
             </div>
           </el-row>
         </div>
@@ -452,7 +454,9 @@
           />
         </el-col>
         <el-col :span="21">
-          <span style="font-size: 13px;margin-left: 10px;font-weight: bold;line-height: 20px">{{ $t('panel.panel_cache_use_tips') }}</span>
+          <span style="font-size: 13px;margin-left: 10px;font-weight: bold;line-height: 20px">
+            {{ $t('panel.panel_cache_use_tips') }}
+          </span>
         </el-col>
       </el-row>
       <div
@@ -518,7 +522,6 @@ import FilterDialog from '../filter/FilterDialog'
 import ButtonDialog from '../filter/ButtonDialog'
 import ButtonResetDialog from '../filter/ButtonResetDialog'
 import toast from '@/components/canvas/utils/toast'
-import generateID from '@/components/canvas/utils/generateID'
 import ComponentWait from '@/views/panel/edit/ComponentWait'
 import { deleteEnshrine, saveEnshrine, starStatus } from '@/api/panel/enshrine'
 import ChartEdit from '@/views/chart/view/ChartEdit'
@@ -561,6 +564,7 @@ export default {
   },
   data() {
     return {
+      userInfo: null,
       canvasId: 'canvas-main',
       panelCacheExist: false,
       viewData: [],
@@ -651,7 +655,7 @@ export default {
     },
     // 显示视图工具栏
     showViewToolsAside() {
-      return !this.batchOptStatus && this.curComponent && (this.curComponent.type === 'view' || this.curComponent.type === 'de-tabs')
+      return !this.batchOptStatus && this.curComponent && (this.curComponent.type === 'view' || (this.curComponent.type === 'de-tabs' && this.$store.state.chart.viewId))
     },
     showBatchViewToolsAside() {
       return this.batchOptStatus
@@ -788,8 +792,23 @@ export default {
     },
     previewVisible(val) {
       this.$store.commit('setPreviewVisible', val)
+      if (!val) {
+        listenGlobalKeyDown()
+      }
     },
     panelInfo: {
+      handler(newVal, oldVla) {
+        this.initWatermark()
+      },
+      deep: true
+    },
+    rightDrawOpen: {
+      handler(newVal, oldVla) {
+        this.initWatermark()
+      },
+      deep: true
+    },
+    outStyle: {
       handler(newVal, oldVla) {
         this.initWatermark()
       },
@@ -827,9 +846,15 @@ export default {
   methods: {
     initWatermark() {
       if (this.panelInfo.watermarkInfo) {
-        userLoginInfo().then(res => {
-          const userInfo = res.data
-          activeWatermark(this.panelInfo.watermarkInfo.settingContent, userInfo, 'canvasInfo-main', this.canvasId, this.panelInfo.watermarkOpen)
+        this.$nextTick(() => {
+          if (this.userInfo) {
+            activeWatermark(this.panelInfo.watermarkInfo.settingContent, this.userInfo, 'canvasInfo-main', this.canvasId, this.panelInfo.watermarkOpen)
+          } else {
+            userLoginInfo().then(res => {
+              this.userInfo = res.data
+              activeWatermark(this.panelInfo.watermarkInfo.settingContent, this.userInfo, 'canvasInfo-main', this.canvasId, this.panelInfo.watermarkOpen)
+            })
+          }
         })
       }
     },
@@ -966,11 +991,10 @@ export default {
       if (this.showIndex === -1 || this.showIndex === type) {
         this.$nextTick(() => {
           if (this.show) {
-            this.showIndex === -1
+            this.showIndex = -1
           }
           this.show = !this.show
-        }
-        )
+        })
       }
       this.showIndex = type
     },
@@ -1249,7 +1273,7 @@ export default {
         img.onload = () => {
           const component = {
             ...commonAttr,
-            id: generateID(),
+            id: uuid.v1(),
             component: 'Picture',
             type: 'picture-add',
             label: '图片',

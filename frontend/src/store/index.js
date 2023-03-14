@@ -151,7 +151,9 @@ const data = {
       height: 0
     },
     previewVisible: false,
-    previewComponentData: []
+    previewComponentData: [],
+    currentCanvasNewId: [],
+    lastViewRequestInfo: {}
   },
   mutations: {
     ...animation.mutations,
@@ -197,6 +199,9 @@ const data = {
     },
 
     setCurComponent(state, { component, index }) {
+      if (!component && state.curComponent) {
+        Vue.set(state.curComponent, 'editing', false)
+      }
       // 当前视图操作状态置空
       if (component) {
         component['optStatus'] = {
@@ -205,9 +210,9 @@ const data = {
         }
         // Is the current component in editing status
         if (!state.curComponent) {
-          component['editing'] = false
+          Vue.set(component, 'editing', false)
         } else if (component.id !== state.curComponent.id) {
-          component['editing'] = false
+          Vue.set(component, 'editing', false)
         }
       }
       state.styleChangeTimes = 0
@@ -232,8 +237,8 @@ const data = {
       }
     },
     setShapeStyle({ curComponent, canvasStyleData, curCanvasScaleMap }, { top, left, width, height, rotate }) {
-      const curCanvasScaleSelf = curCanvasScaleMap[curComponent.canvasId]
       if (curComponent) {
+        const curCanvasScaleSelf = curCanvasScaleMap[curComponent.canvasId]
         if (top || top === 0) curComponent.style.top = Math.round((top / curCanvasScaleSelf.scalePointHeight))
         if (left || left === 0) curComponent.style.left = Math.round((left / curCanvasScaleSelf.scalePointWidth))
         if (width || width === 0) curComponent.style.width = Math.round((width / curCanvasScaleSelf.scalePointWidth))
@@ -271,6 +276,7 @@ const data = {
         state.componentData.splice(index, 0, component)
       } else {
         state.componentData.push(component)
+        state.currentCanvasNewId.push(component.id)
       }
       this.commit('setCurComponent', { component: component, index: index || state.componentData.length - 1 })
     },
@@ -501,6 +507,9 @@ const data = {
         const element = state.componentData[index]
         if (element.id && element.id === id) {
           state.componentData.splice(index, 1)
+          if (element.type === 'de-tabs') {
+            this.commit('deleteComponentsWithCanvasId', element.id)
+          }
           break
         }
       }
@@ -569,7 +578,7 @@ const data = {
       // 移动端布局转换
       state.componentData.forEach(item => {
         item.mobileStyle = (item.mobileStyle || BASE_MOBILE_STYLE)
-        if (item.mobileSelected || item.canvasId !== 'canvas-main') {
+        if (item.mobileSelected && item.canvasId === 'canvas-main') {
           item.style.width = item.mobileStyle.style.width
           item.style.height = item.mobileStyle.style.height
           item.style.top = item.mobileStyle.style.top
@@ -581,10 +590,12 @@ const data = {
           item.sizey = item.mobileStyle.sizey
           item.auxiliaryMatrix = item.mobileStyle.auxiliaryMatrix
           mainComponentData.push(item)
+        } else if (item.canvasId !== 'canvas-main') {
+          mainComponentData.push(item)
         }
       })
       state.componentData = mainComponentData
-      state.mobileLayoutStatus = !state.mobileLayoutStatus
+      state.mobileLayoutStatus = true
     },
     setScrollAutoMove(state, offset) {
       state.scrollAutoMove = offset
@@ -599,6 +610,9 @@ const data = {
     },
     resetViewEditInfo(state) {
       state.panelViewEditInfo = {}
+    },
+    setLastViewRequestInfo(state, viewRequestInfo) {
+      state.lastViewRequestInfo[viewRequestInfo.viewId] = viewRequestInfo.requestInfo
     },
     removeCurBatchComponentWithId(state, id) {
       for (let index = 0; index < state.curBatchOptComponents.length; index++) {
@@ -747,6 +761,7 @@ const data = {
       this.commit('clearLinkageSettingInfo', false)
       this.commit('resetViewEditInfo')
       this.commit('initCurMultiplexingComponents')
+      state.currentCanvasNewId = []
       state.batchOptStatus = false
       // Currently selected components
       state.curBatchOptComponents = []
@@ -806,6 +821,33 @@ const data = {
       state.mousePointShadowMap.mouseY = mousePoint.mouseY
       state.mousePointShadowMap.width = mousePoint.width
       state.mousePointShadowMap.height = mousePoint.height
+    },
+    deleteComponentsWithCanvasId(state, canvasId) {
+      if (canvasId && canvasId.length > 10) {
+        for (let index = 0; index < state.componentData.length; index++) {
+          const element = state.componentData[index]
+          if (element.canvasId && element.canvasId.includes(canvasId)) {
+            state.componentData.splice(index, 1)
+          }
+        }
+      }
+    },
+    // 清除相同sourceViewId 的 联动条件
+    clearViewLinkage(state, viewId) {
+      state.componentData.forEach(item => {
+        if (item.linkageFilters && item.linkageFilters.length > 0) {
+          const newList = item.linkageFilters.filter(linkage => linkage.sourceViewId !== viewId)
+          item.linkageFilters.splice(0, item.linkageFilters.length)
+          // 重新push 可保证数组指针不变 可以watch到
+          if (newList.length > 0) {
+            newList.forEach(newLinkage => {
+              item.linkageFilters.push(newLinkage)
+            })
+          }
+        }
+      })
+
+      bus.$emit('clear_panel_linkage', { viewId: viewId })
     }
   },
   modules: {

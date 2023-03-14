@@ -18,15 +18,19 @@ import {
   changeFavicon
 } from '@/utils/index'
 import Layout from '@/layout/index'
-import { getSysUI } from '@/utils/auth'
+import {
+  getSysUI
+} from '@/utils/auth'
 
-import { getSocket } from '@/websocket'
+import {
+  getSocket
+} from '@/websocket'
 
 NProgress.configure({
   showSpinner: false
 }) // NProgress Configuration
 
-const whiteList = ['/login', '/401', '/404', '/delink', '/nolic'] // no redirect whitelist
+const whiteList = ['/login', '/401', '/404', '/delink', '/nolic', '/de-auto-login'] // no redirect whitelist
 
 const routeBefore = (callBack) => {
   let uiInfo = getSysUI()
@@ -53,14 +57,22 @@ const routeBefore = (callBack) => {
     callBack()
   }
 }
-router.beforeEach(async(to, from, next) => routeBefore(() => {
+router.beforeEach(async (to, from, next) => routeBefore(() => {
   // start progress bar
   NProgress.start()
-  const mobileIgnores = ['/delink']
+  const mobileIgnores = ['/delink', '/de-auto-login']
   const mobilePreview = '/preview/'
+  const hasToken = getToken()
 
   if (isMobile() && !to.path.includes(mobilePreview) && mobileIgnores.indexOf(to.path) === -1) {
-    window.location.href = window.origin + '/app.html'
+    let urlSuffix = '/app.html'
+    if (hasToken) {
+      urlSuffix += ('?detoken=' + hasToken)
+    }
+    localStorage.removeItem('user-info')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('Authorization')
+    window.location.href = window.origin + urlSuffix
     NProgress.done()
   }
 
@@ -68,7 +80,7 @@ router.beforeEach(async(to, from, next) => routeBefore(() => {
   document.title = getPageTitle(to.meta.title)
 
   // determine whether the user has logged in
-  const hasToken = getToken()
+
   if (hasToken) {
     if (to.path === '/login') {
       // if is logged in, redirect to the home page
@@ -118,8 +130,7 @@ router.beforeEach(async(to, from, next) => routeBefore(() => {
       next()
     } else {
       // other pages that do not have permission to access are redirected to the login page.
-      // next(`/login?redirect=${to.path}`)
-      next('/login')
+      next(`/login?redirect=${to.fullPath}`)
       NProgress.done()
     }
   }

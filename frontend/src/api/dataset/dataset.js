@@ -86,6 +86,23 @@ export function listDatasource() {
   })
 }
 
+export function getDatasetList() {
+  return request({
+    url: 'dataset/table/list',
+    loading: false,
+    method: 'post',
+    data: {}
+  })
+}
+
+export function getPanelGroupList() {
+  return request({
+    url: '/panel/group/list',
+    loading: false,
+    method: 'get'
+  })
+}
+
 export function listApiDatasource() {
   return request({
     url: '/datasource/list/api',
@@ -121,8 +138,24 @@ export function fieldList(id, showLoading = true) {
 }
 
 export function fieldListWithPermission(id, showLoading = true) {
+  //初始模板中的过滤组件无需走后台
+  if (id.indexOf('no_auth') > -1) {
+    return new Promise(function(resolve) {
+      resolve({
+        data: []
+      })
+    })
+  }
   return request({
     url: '/dataset/field/listWithPermission/' + id,
+    loading: showLoading,
+    method: 'post'
+  })
+}
+
+export function datasetParams(id, type, showLoading = true) {
+  return request({
+    url: '/dataset/table/params/' + id + '/' + type,
     loading: showLoading,
     method: 'post'
   })

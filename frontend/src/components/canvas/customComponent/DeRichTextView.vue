@@ -139,6 +139,10 @@ export default {
       }
     },
     myValue(newValue) {
+      if (this.canEdit) {
+        const ed = tinymce.editors[this.tinymceId]
+        this.element.propValue.textValue = ed.getContent()
+      }
       this.initReady && this.$store.commit('canvasChange')
     }
   },

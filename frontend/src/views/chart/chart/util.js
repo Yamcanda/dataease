@@ -206,7 +206,9 @@ export const TYPE_CONFIGS = [
         'dimensionFontStyle',
         'dimensionLetterSpace',
         'dimensionFontShadow',
-        'spaceSplit'
+        'spaceSplit',
+        'hPosition',
+        'vPosition'
       ],
       'title-selector-ant-v': [
         'show',
@@ -251,7 +253,9 @@ export const TYPE_CONFIGS = [
         'dimensionFontStyle',
         'dimensionLetterSpace',
         'dimensionFontShadow',
-        'spaceSplit'
+        'spaceSplit',
+        'hPosition',
+        'vPosition'
       ],
       'title-selector-ant-v': [
         'show',
@@ -1939,7 +1943,9 @@ export const TYPE_CONFIGS = [
         'dimensionFontStyle',
         'dimensionLetterSpace',
         'dimensionFontShadow',
-        'spaceSplit'
+        'spaceSplit',
+        'hPosition',
+        'vPosition'
       ],
       'title-selector': [
         'show',
@@ -1984,7 +1990,9 @@ export const TYPE_CONFIGS = [
         'dimensionFontStyle',
         'dimensionLetterSpace',
         'dimensionFontShadow',
-        'spaceSplit'
+        'spaceSplit',
+        'hPosition',
+        'vPosition'
       ],
       'title-selector': [
         'show',
@@ -3170,7 +3178,8 @@ export const TYPE_CONFIGS = [
       'label-selector',
       'tooltip-selector',
       'title-selector',
-      'suspension-selector'
+      'suspension-selector',
+      'condition-style-selector'
     ],
     propertyInner: {
 
@@ -3185,7 +3194,7 @@ export const TYPE_CONFIGS = [
         'show',
         'fontSize',
         'color',
-        'formatter',
+
         'label-bg',
         'label-show-shadow',
         'label-shadow-color'
@@ -3206,6 +3215,9 @@ export const TYPE_CONFIGS = [
         'isBolder'
       ],
       'suspension-selector': [
+        'show'
+      ],
+      'condition-style-selector': [
         'show'
       ]
     }

@@ -1121,7 +1121,7 @@ public class SqlserverQueryProvider extends QueryProvider {
                 whereValue = "'%" + value.get(0) + "%'";
             } else if (StringUtils.containsIgnoreCase(request.getOperator(), "between")) {
                 if (request.getDatasetTableField().getDeType() == DeTypeConstants.DE_TIME) {
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                     String startTime = simpleDateFormat.format(new Date(Long.parseLong(value.get(0))));
                     String endTime = simpleDateFormat.format(new Date(Long.parseLong(value.get(1))));
                     whereValue = String.format(SqlServerSQLConstants.WHERE_BETWEEN, startTime, endTime);
@@ -1338,7 +1338,6 @@ public class SqlserverQueryProvider extends QueryProvider {
     public List<Dateformat> dateformat() {
         return JSONArray.parseArray("[\n" +
                 "{\"dateformat\": \"102\", \"desc\": \"yyyy.mm.dd\"},\n" +
-                "{\"dateformat\": \"120\", \"desc\": \"yyyy-mm-dd\"},\n" +
                 "{\"dateformat\": \"111\", \"desc\": \"yyyy/mm/dd\"},\n" +
                 "{\"dateformat\": \"112\", \"desc\": \"yyyymmdd\"},\n" +
                 "{\"dateformat\": \"120\", \"desc\": \"yyyy-mm-dd hh:mi:ss\"}\n" +

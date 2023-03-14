@@ -418,7 +418,11 @@ public class ExcelXlsxReader extends DefaultHandler {
                 break;
             case NUMBER: //数字
                 if (formatString != null && isDateFormat) {
-                    thisStr = formatter.formatRawCellContents(Double.parseDouble(value), formatIndex, formatString).trim();
+                    if (obtainedNum != null) {
+                        thisStr = formatter.formatRawCellContents(Double.parseDouble(value), formatIndex, formatString).trim();
+                    } else {
+                        thisStr = formatter.formatRawCellContents(Double.parseDouble(value), formatIndex, "yyyy-mm-dd hh:mm:ss").trim();
+                    }
                 } else {
                     thisStr = value;
                 }

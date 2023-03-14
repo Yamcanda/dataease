@@ -12,6 +12,11 @@
     @mousedown="handleMouseDown"
     @scroll="canvasScroll"
   >
+    <page-line-editor
+      v-if="showPageLine"
+      ref="main-page-line"
+      :canvas-style-data="canvasStyleData"
+    />
     <!-- 网格线 -->
     <Grid
       v-if="showGrid"
@@ -121,7 +126,7 @@
       :canvas-id="canvasId"
     />
     <!-- 右击菜单 -->
-    <ContextMenu />
+    <ContextMenu/>
 
     <!-- 对齐标线 -->
     <span
@@ -157,6 +162,7 @@ import MarkLine from './MarkLine'
 import Area from './Area'
 import eventBus from '@/components/canvas/utils/eventBus'
 import Grid from './Grid'
+import PageLineEditor from './PageLineEditor'
 import PGrid from './PGrid'
 import { changeStyleWithScale } from '@/components/canvas/utils/translate'
 import UserViewDialog from '@/components/canvas/customComponent/UserViewDialog'
@@ -667,8 +673,8 @@ function setPlayerPosition(item, position) {
   item.y = targetY
 
   // 还原到像素
-  item.style.left = ((item.x - 1) * this.matrixStyle.width) / this.scalePointWidth
-  item.style.top = ((item.y - 1) * this.matrixStyle.height) / this.scalePointHeight
+  item.style.left = (item.x - 1) / this.matrixScaleWidth
+  item.style.top = (item.y - 1) / this.matrixScaleHeight
   if (item.y + item.sizey > itemMaxY) {
     itemMaxY = item.y + item.sizey
   }
@@ -763,7 +769,8 @@ export default {
     UserViewDialog,
     DeOutWidget,
     DragShadow,
-    LinkJumpSet
+    LinkJumpSet,
+    PageLineEditor
   },
   props: {
     parentForbid: {
@@ -906,6 +913,12 @@ export default {
     }
   },
   computed: {
+    matrixScaleWidth() {
+      return this.scalePointWidth / this.matrixStyle.width
+    },
+    matrixScaleHeight() {
+      return this.scalePointHeight / this.matrixStyle.height
+    },
     moveTabCollisionActive() {
       return this.tabCollisionActiveId
     },
@@ -938,10 +951,25 @@ export default {
         return false
       }
     },
+    showPageLine() {
+      if (this.canvasStyleData && this.canvasStyleData.pdfPageLine) {
+        return this.canvasStyleData.pdfPageLine.showPageLine
+      }
+      return false
+    },
     editStyle() {
       return {
         height: this.outStyle.height + this.scrollTop + 'px !important'
       }
+    },
+    scrollHeight() {
+      let baseHeight = 0
+      this.componentData.forEach(item => {
+        const top = this.getShapeStyleIntDeDrag(item.style, 'top')
+        const height = this.getShapeStyleIntDeDrag(item.style, 'height')
+        baseHeight = Math.max(baseHeight, top + height)
+      })
+      return baseHeight
     },
     customStyle() {
       let style = {
@@ -989,7 +1017,7 @@ export default {
     ]),
 
     searchButtonInfo() {
-      const result = this.buildButtonFilterMap(this.componentData)
+      const result = this.buildButtonFilterMap(this.$store.state.componentData)
       return result
     },
     filterMap() {
@@ -1014,6 +1042,19 @@ export default {
         this.dragShadowShow = false
         this.$nextTick(() => {
           this.dragShadowShow = true
+        })
+      },
+      deep: true
+    },
+    scrollHeight: {
+      handler(newVal, oldVla) {
+        this.$nextTick(() => {
+          if (newVal !== oldVla && this.showPageLine) {
+            const lineRef = this.$refs['main-page-line']
+            if (lineRef?.init) {
+              lineRef.init(newVal)
+            }
+          }
         })
       },
       deep: true
@@ -1097,6 +1138,25 @@ export default {
   created() {
   },
   methods: {
+    getWrapperChildRefs() {
+      return this.$refs['wrapperChild']
+    },
+    getAllWrapperChildRefs() {
+      let allChildRefs = []
+      const currentChildRefs = this.getWrapperChildRefs()
+      if (currentChildRefs && currentChildRefs.length > 0) {
+        allChildRefs.push.apply(allChildRefs, currentChildRefs)
+      }
+      currentChildRefs && currentChildRefs.forEach(subRef => {
+        if (subRef?.getType && subRef.getType() === 'de-tabs') {
+          const currentTabChildRefs = subRef.getWrapperChildRefs()
+          if (currentTabChildRefs && currentTabChildRefs.length > 0) {
+            allChildRefs.push.apply(allChildRefs, currentTabChildRefs)
+          }
+        }
+      })
+      return allChildRefs
+    },
     setChartData(chart) {
       this.componentData.forEach((item, index) => {
         if (item.type === 'view' && item.component === 'user-view' && item.propValue.viewId === chart.id) {
@@ -1113,7 +1173,7 @@ export default {
       })
     },
     refreshButtonInfo(isClear = false) {
-      const result = this.buildButtonFilterMap(this.componentData, isClear)
+      const result = this.buildButtonFilterMap(this.$store.state.componentData, isClear)
       this.searchButtonInfo.buttonExist = result.buttonExist
       this.searchButtonInfo.relationFilterIds = result.relationFilterIds
       this.searchButtonInfo.filterMap = result.filterMap
@@ -1121,10 +1181,12 @@ export default {
       this.buttonFilterMap = this.searchButtonInfo.filterMap
     },
     triggerSearchButton(isClear = false) {
+      if (this.canvasId !== 'canvas-main') {
+        return
+      }
       this.refreshButtonInfo(isClear)
       this.buttonFilterMap = this.searchButtonInfo.filterMap
-
-      this.componentData.forEach(component => {
+      this.$store.state.componentData.forEach(component => {
         if (component.type === 'view' && this.buttonFilterMap[component.propValue.viewId]) {
           component.filters = this.buttonFilterMap[component.propValue.viewId]
         }
@@ -1171,20 +1233,16 @@ export default {
       return result
     },
     buildViewKeyFilters(panelItems, result, isClear = false) {
-      const refs = this.$refs
-      if (!this.$refs['wrapperChild'] || !this.$refs['wrapperChild'].length) return result
-      const len = this.$refs['wrapperChild'].length
+      const wrapperChildAll = this.getAllWrapperChildRefs()
+      if (!wrapperChildAll || !wrapperChildAll.length) return result
       panelItems.forEach((element) => {
-        if (element.type !== 'custom') {
-          return true
-        }
-
         let param = null
-        const index = this.getComponentIndex(element.id)
-        if (index < 0 || index >= len) {
-          return true
-        }
-        const wrapperChild = refs['wrapperChild'][index]
+        let wrapperChild
+        wrapperChildAll?.forEach(item => {
+          if (item?.['getComponentId'] && item.getComponentId() === element.id) {
+            wrapperChild = item
+          }
+        })
         if (!wrapperChild || !wrapperChild.getCondition) return true
         if (isClear) {
           wrapperChild.clearHandler && wrapperChild.clearHandler()
@@ -1193,9 +1251,11 @@ export default {
         const condition = formatCondition(param)
         const vValid = valueValid(condition)
         const filterComponentId = condition.componentId
+        const conditionCanvasId = wrapperChild.getCanvasId && wrapperChild.getCanvasId()
         Object.keys(result).forEach(viewId => {
           const vidMatch = viewIdMatch(condition.viewIds, viewId)
           const viewFilters = result[viewId]
+          const canvasMatch = this.checkCanvasViewIdsMatch(conditionCanvasId, viewId)
           let j = viewFilters.length
           while (j--) {
             const filter = viewFilters[j]
@@ -1203,14 +1263,24 @@ export default {
               viewFilters.splice(j, 1)
             }
           }
-          vidMatch && vValid && viewFilters.push(condition)
+          canvasMatch && vidMatch && vValid && viewFilters.push(condition)
         })
       })
       return result
     },
+    checkCanvasViewIdsMatch(conditionCanvasId, viewId) {
+      if (conditionCanvasId === 'canvas-main') {
+        return true
+      }
+      for (let index = 0; index < this.$store.state.componentData.length; index++) {
+        const item = this.$store.state.componentData[index]
+        if (item.type === 'view' && item.propValue.viewId === viewId && item.canvasId === conditionCanvasId) return true
+      }
+      return false
+    },
     getComponentIndex(id) {
-      for (let index = 0; index < this.componentData.length; index++) {
-        const item = this.componentData[index]
+      for (let index = 0; index < this.$store.state.componentData.length; index++) {
+        const item = this.$store.state.componentData[index]
         if (item.id === id) return index
       }
       return -1
@@ -1245,6 +1315,9 @@ export default {
     },
     changeStyleWithScale,
     handleMouseDown(e) {
+      if (this.isPageLineTarget(e)) {
+        return
+      }
       // 如果没有选中组件 在画布上点击时需要调用 e.preventDefault() 防止触发 drop 事件
       if (!this.curComponent || (this.curComponent.component !== 'v-text' && this.curComponent.component !== 'rect-shape')) {
         e.preventDefault()
@@ -1252,6 +1325,9 @@ export default {
       this.hideArea()
       // 挤占式画布设计
       this.containerMouseDown(e)
+    },
+    isPageLineTarget(e) {
+      return e.target.classList && [...e.target.classList].includes('page-line-item')
     },
 
     hideArea() {
@@ -1511,6 +1587,9 @@ export default {
       }
     },
     handleDragOver(e) {
+      if (!this.dragComponentInfo?.shadowStyle) {
+        return
+      }
       this.dragComponentInfo.shadowStyle.x = e.pageX - 220
       this.dragComponentInfo.shadowStyle.y = e.pageY - 90 + this.scrollTop
       this.dragComponentInfo.style.left = this.dragComponentInfo.shadowStyle.x / this.scalePointWidth
@@ -1609,37 +1688,35 @@ export default {
       const startY = infoBox.startY
       const moveXSize = e.pageX - startX // X方向移动的距离
       const moveYSize = e.pageY - startY // Y方向移动的距离
-
-      const addSizex = (moveXSize) % vm.cellWidth > (vm.cellWidth / 4 * 1) ? parseInt(((moveXSize) / vm.cellWidth + 1)) : parseInt(((moveXSize) / vm.cellWidth))
-      const addSizey = (moveYSize) % vm.cellHeight > (vm.cellHeight / 4 * 1) ? parseInt(((moveYSize) / vm.cellHeight + 1)) : parseInt(((moveYSize) / vm.cellHeight))
-      let nowX = Math.round((item.style.width * this.scalePointWidth) / this.matrixStyle.width)
-      let nowY = Math.round((item.style.height * this.scalePointHeight) / this.matrixStyle.height)
+      let nowX = Math.round(item.style.width * this.matrixScaleWidth)
+      let nowY = Math.round(item.style.height * this.matrixScaleHeight)
       nowX = nowX > 0 ? nowX : 1
       nowY = nowY > 0 ? nowY : 1
 
       const oldX = infoBox.oldX
       const oldY = infoBox.oldY
-      let newX = Math.round((item.style.left * this.scalePointWidth) / this.matrixStyle.width) + 1
-      let newY = Math.round((item.style.top * this.scalePointHeight) / this.matrixStyle.height) + 1
+      let newX = Math.round(item.style.left * this.matrixScaleWidth) + 1
+      let newY = Math.round(item.style.top * this.matrixScaleHeight) + 1
       newX = newX > 0 ? newX : 1
       newY = newY > 0 ? newY : 1
-      debounce((function(newX, oldX, newY, oldY, addSizex, addSizey) {
-        return function() {
-          if (newX !== oldX || oldY !== newY) {
-            movePlayer.call(vm, resizeItem, {
-              x: newX,
-              y: newY
+      if (item.sizex !== nowX || item.sizey !== nowY) {
+        debounce((function(newX, oldX, newY, oldY) {
+          return function() {
+            if (newX !== oldX || oldY !== newY) {
+              movePlayer.call(vm, resizeItem, {
+                x: newX,
+                y: newY
+              })
+              infoBox.oldX = newX
+              infoBox.oldY = newY
+            }
+            resizePlayer.call(vm, resizeItem, {
+              sizex: nowX,
+              sizey: nowY
             })
-
-            infoBox.oldX = newX
-            infoBox.oldY = newY
           }
-          resizePlayer.call(vm, resizeItem, {
-            sizex: nowX,
-            sizey: nowY
-          })
-        }
-      })(newX, oldX, newY, oldY, addSizex, addSizey), 10)
+        })(newX, oldX, newY, oldY), 10)
+      }
     },
     onDragging(e, item) {
       const infoBox = this.infoBox
@@ -1659,19 +1736,21 @@ export default {
       if (this.moveTabCollisionActive) {
         return
       }
-      debounce((function(newX, oldX, newY, oldY) {
-        return function() {
-          if (newX !== oldX || oldY !== newY) {
-            movePlayer.call(vm, moveItem, {
-              x: newX,
-              y: newY
-            })
+      if (newX !== oldX || oldY !== newY) {
+        debounce((function(newX, oldX, newY, oldY) {
+          return function() {
+            if (newX !== oldX || oldY !== newY) {
+              movePlayer.call(vm, moveItem, {
+                x: newX,
+                y: newY
+              })
 
-            infoBox.oldX = newX
-            infoBox.oldY = newY
+              infoBox.oldX = newX
+              infoBox.oldY = newY
+            }
           }
-        }
-      })(newX, oldX, newY, oldY), 10)
+        })(newX, oldX, newY, oldY), 10)
+      }
     },
     endMove(e) {
 

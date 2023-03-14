@@ -116,6 +116,13 @@ export function wecomStatus() {
   })
 }
 
+export function wecomQrParams() {
+  return request({
+    url: '/plugin/wecom/getQrParam',
+    method: 'post'
+  })
+}
+
 export function dingtalkStatus() {
   return request({
     url: '/api/auth/isOpenDingtalk',
@@ -127,6 +134,13 @@ export function larkStatus() {
   return request({
     url: '/api/auth/isOpenLark',
     method: 'post'
+  })
+}
+
+export function larkAppId() {
+  return request({
+    url: '/plugin/lark/appId',
+    method: 'get'
   })
 }
 

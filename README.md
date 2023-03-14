@@ -48,6 +48,9 @@ DataEase 是开源的数据可视化分析工具，帮助用户快速分析数�
   <img src="https://dataease.io/images/dataSource/TiDB.jpg" alt="TiDB" border="0" width="155" height="107"/>
   <img src="https://dataease.io/images/dataSource/StarRocks.jpg" alt="StarRocks" border="0" width="155" height="107"/>
   <img src="https://dataease.io/images/dataSource/PrestoDB.jpg" alt="PrestoDB" border="0" width="155" height="107"/>
+  <img src="https://dataease.io/images/dataSource/dm.jpg" alt="dm" border="0" width="155" height="107"/>
+  <img src="https://dataease.io/images/dataSource/kingbase.jpg" alt="KingBase" border="0" width="155" height="107"/>
+  <img src="https://dataease.io/images/dataSource/kylin.jpg" alt="Kylin" border="0" width="180" height="107"/>
 </p>
 
 > 更多数据源支持持续增加中...
@@ -76,7 +79,7 @@ DataEase 是开源的数据可视化分析工具，帮助用户快速分析数�
 2. 以 root 用户执行如下命令一键安装 DataEase。
 
 ```sh
-curl -sSL https://github.com/dataease/dataease/releases/latest/download/quick_start.sh | sh
+curl -sSL https://dataease.oss-cn-hangzhou.aliyuncs.com/quick_start.sh | sh
 ```
 
 **学习资料**
@@ -104,7 +107,7 @@ curl -sSL https://github.com/dataease/dataease/releases/latest/download/quick_st
 
 ## License
 
-Copyright (c) 2014-2022 飞致云 FIT2CLOUD, All rights reserved.
+Copyright (c) 2014-2023 飞致云 FIT2CLOUD, All rights reserved.
 
 Licensed under The GNU General Public License version 3 (GPLv3)  (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
 

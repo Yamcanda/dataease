@@ -117,7 +117,7 @@
                 @change="checkedViewsChange"
               >
                 <el-checkbox
-                  v-for="(item ) in childViews.viewInfos"
+                  v-for="(item ) in curTableViews"
                   :key="item.id"
                   :label="item.id"
                   class="de-checkbox"
@@ -166,7 +166,7 @@
           <el-popover
             placement="bottom-end"
             :disabled="!attrs.enableParameters"
-            width="200"
+            width="420"
           >
             <div class="view-container-class">
               <el-tabs
@@ -184,7 +184,7 @@
                     @change="val => {changeDynamicParams(val, item.name)}"
                   >
                     <el-checkbox
-                      v-for="(ele ) in childViews.datasetParams"
+                      v-for="(ele ) in allParams"
                       :key="ele.id"
                       :label="ele.id"
                       :disabled="attrs[tabsOption[(index + 1)%2].name + 'Parameters'] && attrs[tabsOption[(index + 1)%2].name + 'Parameters'].includes(ele.id)"
@@ -215,12 +215,12 @@
                 v-model="attrs.parameters"
               >
                 <el-checkbox
-                  v-for="(item ) in childViews.datasetParams"
+                  v-for="(item ) in allParams"
                   :key="item.id"
                   :label="item.id"
                   class="de-checkbox"
                 >
-                  <div class="span-div">
+                  <div class="span-div2">
                     <span
                       v-if="item.alias && item.alias.length <= 7"
                       style="margin-left: 6px"
@@ -276,7 +276,12 @@ export default {
     element: {
       type: Object,
       default: null
+    },
+    datasetParams: {
+      type: Array,
+      default: () => []
     }
+
   },
   data() {
     return {
@@ -296,12 +301,19 @@ export default {
         { id: 'HH', name: 'HH' },
         { id: 'HH:mm', name: 'HH:mm' },
         { id: 'HH:mm:ss', name: 'HH:mm:ss' }
-      ]
+      ],
+      allParams: []
     }
   },
   computed: {
     fieldIds() {
       return this.element.options.attrs.fieldId || []
+    },
+    curTableViews() {
+      const tableIdList = this.element.options.attrs.dragItems.map(item => item.tableId) || []
+
+      const views = this.childViews.viewInfos.filter(view => tableIdList.includes(view.tableId))
+      return views
     }
   },
   watch: {
@@ -322,24 +334,54 @@ export default {
           }
           this.attrs.parameters = parameters
         }
+        this.allParams = JSON.parse(JSON.stringify(this.childViews.datasetParams))
+      }
+    },
+    'datasetParams': {
+      handler(newName, oldName) {
+        this.allParams = JSON.parse(JSON.stringify(this.childViews.datasetParams))
+        if (this.datasetParams.length > 0) {
+          for (var j = 0; j < this.datasetParams.length; j++) {
+            var hasParam = false
+            for (var i = 0; i < this.childViews.datasetParams.length; i++) {
+              if (this.childViews.datasetParams[i].id === this.datasetParams[j].id) {
+                hasParam = true
+              }
+            }
+            if (!hasParam) {
+              this.allParams.push(this.datasetParams[j])
+            }
+          }
+        }
+      }
+    },
+    'activeName': {
+      handler(newName, oldName) {
+
       }
     }
   },
 
   created() {
     this.attrs = this.controlAttrs
-    if (this.widget.isTimeWidget && this.widget.isTimeWidget()) {
+    if (this.widget.isTimeWidget) {
       this.showParams = true
       this.isRangeParamWidget = this.widget.isRangeParamWidget && this.widget.isRangeParamWidget()
+    }
+    if ('timeYearWidget,timeMonthWidget,timeDateWidget,textSelectWidget,numberSelectWidget'.indexOf(this.widget.name) !== -1) {
+      this.showParams = true
     }
   },
   methods: {
     changeDynamicParams(val, name) {
       const start = this.attrs.startParameters ? JSON.parse(JSON.stringify(this.attrs.startParameters)) : []
 
-      const end = this.attrs.endParameters ? JSON.parse(JSON.stringify(this.attrs.endParameters)) : []
+      let end = this.attrs.endParameters ? JSON.parse(JSON.stringify(this.attrs.endParameters)) : []
       if (end?.length) {
-        end[0] += '_START_END_SPLIT'
+        end = end.map(item => {
+          item = item + '_START_END_SPLIT'
+          return item
+        })
       }
       this.attrs.parameters = [...new Set([...start, ...end])]
     },
@@ -370,6 +412,12 @@ export default {
     enableParametersChange(value) {
       if (!value) {
         this.attrs.parameters = []
+        if (this.attrs.startParameters?.length) {
+          this.attrs.startParameters = []
+        }
+        if (this.attrs.endParameters?.length) {
+          this.attrs.endParameters = []
+        }
       }
       this.fillAttrs2Filter()
     },
@@ -438,6 +486,13 @@ export default {
 
 .span-div {
   width: 135px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.span-div2 {
+  width: 350px;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;

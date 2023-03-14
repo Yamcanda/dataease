@@ -33,3 +33,7 @@ target
 .classpath
 .factorypath
 src/main/resources/jmeter/lib/
+
+.github
+.husky
+.vscode

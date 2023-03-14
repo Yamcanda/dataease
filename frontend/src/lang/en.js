@@ -135,6 +135,7 @@ export default {
     default_login: 'Normal'
   },
   commons: {
+    consanguinity: 'Consanguinity',
     collapse_navigation: 'Collapse navigation',
     operate_cancelled: 'Operation cancelled',
     bind: 'Bind',
@@ -380,6 +381,7 @@ export default {
     ukey_title: 'API Keys',
     thumbnail: 'thumbnail',
     confirm_delete: 'Confirm delete',
+    delete_this_dashboard: 'Are you sure to delete this dashboard?',
     confirm_stop: 'Confirm stop',
     stop_success: 'Stop success',
     treeselect: {
@@ -931,6 +933,19 @@ export default {
     password_input_error: 'Original password input error'
   },
   chart: {
+    chart_refresh_tips: 'View refresh setting takes precedence over panel refresh setting',
+    '1-trend': 'trend',
+    '2-state': 'State',
+    '3-rank': 'Rank',
+    '4-location': 'Location',
+    '5-weather': 'Weather',
+    chinese: 'Chinese',
+    mark_field: 'Field',
+    mark_value: 'Value',
+    function_style: 'Function style',
+    condition_style: 'Mark style',
+    longitude: 'Longitude',
+    latitude: 'Latitude',
     gradient: 'Gradient',
     layer_controller: 'Quota switch',
     suspension: 'Suspension',
@@ -1031,12 +1046,12 @@ export default {
     line_symbol_size: 'Break point size',
     line_type_solid: 'Solid line',
     line_type_dashed: 'Dotted line',
-    line_symbol_circle: 'circular',
+    line_symbol_circle: 'Circular',
     line_symbol_emptyCircle: 'Hollow circle',
-    line_symbol_rect: 'rectangle',
+    line_symbol_rect: 'Rectangle',
     line_symbol_roundRect: 'Rounded rectangle',
-    line_symbol_triangle: 'triangle',
-    line_symbol_diamond: 'diamond',
+    line_symbol_triangle: 'Triangle',
+    line_symbol_diamond: 'Diamond',
     line_symbol_pin: 'nail',
     line_symbol_arrow: 'arrow',
     line_symbol_none: 'None',
@@ -1046,7 +1061,7 @@ export default {
     funnel_width: 'width',
     line_smooth: 'Smooth polyline',
     title_style: 'Title Style',
-    text_fontsize: 'font size',
+    text_fontsize: 'Font size',
     text_color: 'Font color',
     text_h_position: 'Horizontal position',
     text_v_position: 'Vertical position',
@@ -1064,7 +1079,7 @@ export default {
     shape: 'shape',
     polygon: 'polygon',
     circle: 'circular',
-    label: 'label',
+    label: 'Label',
     label_position: 'Label location',
     label_bg: 'Label BG',
     label_shadow: 'Label Shadow',
@@ -1166,6 +1181,8 @@ export default {
     datePattern: 'Date Format',
     y: 'Year',
     y_M: 'Year Month',
+    y_Q: 'Year Quarter',
+    y_W: 'Year Week',
     y_M_d: 'Year Month Day',
     H_m_s: 'Hour Minute Second',
     y_M_d_H_m: 'Year Month Day Hour Minute',
@@ -1349,6 +1366,7 @@ export default {
     chart_table_pivot: 'Pivot Table',
     table_pivot_row: 'Data Row',
     field_error_tips: 'This field is changed(Include dimension、quota，field type，deleted),please edit again.',
+    mark_field_error: 'The current field does not exist, please select again',
     table_border_color: 'Border Color',
     table_header_align: 'Header Align',
     table_item_align: 'Body Align',
@@ -1468,17 +1486,37 @@ export default {
     total_sort_desc: 'DESC',
     total_sort_field: 'Sort Field',
     empty_data_strategy: 'Empty Data Strategy',
-    break_line: 'Disconnection',
+    break_line: 'Keep',
     set_zero: 'Set Zero',
-    ignore_data: 'Ignore Data',
+    ignore_data: 'Hide Data',
     sub_dimension_tip: 'This field is required, and cannot be included in the type axis, you should choose non-group chart if you don\'t need it, or you will get unexpected chart.',
     drill_dimension_tip: 'Only fields in the dataset can be drilled',
     table_scroll_tip: 'The detail table is only effective when the pagination mode is "Drop-down".',
     table_threshold_tip: 'Tip: Do not select fields repeatedly. If the same field is configured repeatedly, only the last field will take effect.',
-    table_column_width_tip: 'Column width do not always work. The priority of the container width is higher than the column width, which means if the result of dividing the width of the table container by the number of columns is greater than specified column width, the former will take effect.',
-    reference_field_tip: 'Reference fields start with "[" and end with "]". Do not modify the reference content, otherwise the reference will fail. If you enter content in the same format as the reference field, it will be treated as a reference field.',
+    table_column_width_tip: `Column width do not always work.<br/>
+                             The priority of the container width is higher than the column width, <br/>
+                             which means if the result of dividing the width of the table container by the number of columns is greater than specified column width, <br/>
+                             the former will take effect.`,
+    reference_field_tip: `Reference fields start with "[" and end with "]". <br/>
+                          Do not modify the reference content, otherwise the reference will fail.<br/>
+                          If you enter content in the same format as the reference field, it will be treated as a reference field.`,
     scatter_tip: 'When this indicator is in effect, the bubble size attribute in the style size will be invalid',
-    place_name_mapping: 'Place name mapping'
+    place_name_mapping: 'Place name mapping',
+    axis_tip: 'The minimum value, maximum value, and interval are all numeric types; it will be regarded as automatic if left blank.<br/>Please make sure that the filled values can be calculated correctly, otherwise the axis values will not be displayed normally.',
+    format_tip: `The template variables include {a}, {b}, {c}, {d}, which represent series name, data name, data value, etc. respectively.<br>
+                    When the trigger position is 'coordinate axis', there will be multiple series of data. At this time, the index of the series can be represented by {a0}, {a1}, {a2} followed by an index.<br>
+                    {a}, {b}, {c}, {d} have different meanings under different graph types. Among them, variables {a}, {b}, {c}, {d} represent data meanings in different chart types:<br><br>
+                    Line (area) chart, Column (Bar) chart, Dashboard: {a} is series name, {b} is category value, {c} is value<br>
+                    Pie chart, Funnel chart: {a} is series name, {b} is data item name, {c} is value, {d} is percentage<br>
+                    Map : {a} (series name), {b} is area name, {c} is merged values, {d} is none<br>
+                    Scatter (Bubble) plot: {a} is series name, {b} is data name, {c} is numeric array, {d} is none`,
+    h_position: 'Horizontal Position',
+    v_position: 'Vertical Position',
+    p_left: 'Left',
+    p_right: 'Right',
+    p_top: 'Top',
+    p_bottom: 'Bottom',
+    p_center: 'Center'
   },
   dataset: {
     spend_time: 'Spend',
@@ -1765,6 +1803,8 @@ export default {
     please_set_driverClass: 'Please specify driver class'
   },
   datasource: {
+    data_source_configuration: 'Data Source Configuration',
+    data_source_table: 'Data Source Table',
     auth_method: 'Auth method',
     passwd: 'UserName Password',
     kerbers_info: 'Please make sure krb5 Conf, KeyTab key, added to path: /opt/dataease/conf',
@@ -1795,6 +1835,7 @@ export default {
     please_input_url: 'Please enter url address',
     please_input_port: 'Please enter port',
     modify: 'Edit data Source',
+    copy: 'Copy datasource',
     validate_success: 'Verification successful',
     validate: 'Validate',
     search_by_name: 'Search by name',
@@ -1843,6 +1884,7 @@ export default {
     all_compute_mode: 'Direct connection and extraction mode',
     extra_params: 'Extra JDBC connection string',
     please_input_dataPath: 'Please enter the JsonPath data path',
+    show_api_data: 'View API data structure',
     warning: 'Contains invalid table',
     data_table: 'Dataset Table',
     data_table_name: 'Dataset Table name',
@@ -1853,7 +1895,9 @@ export default {
     base_info: 'Basic information',
     column_info: 'Data structure',
     request: 'Request',
+    isUseJsonPath: 'Specify JsonPath or not',
     path_all_info: 'Please fill in the full address',
+    jsonpath_info: 'Please fill in JsonPath',
     req_param: 'Request parameters',
     headers: 'Request header',
     key: 'Key',
@@ -1896,11 +1940,16 @@ export default {
     field_description: 'Field description',
     table_description: 'Table description',
     relational_database: 'Relational database',
+    data_warehouse_lake: 'Data Warehouse/Data Lake',
     non_relational_database: 'Non relational database',
     all: 'All',
     other: 'other',
     this_data_source: 'Are you sure to delete this data source?',
-    cannot_be_deleted: '4 datasets are using this data source and cannot be deleted',
+    delete_this_dataset: 'Are you sure to delete this dataset?',
+    cannot_be_deleted_dataset: 'This dataset has the following blood relationship. Deleting it will cause the view of related dashboard to be invalid. Are you sure to delete it?',
+    cannot_be_deleted_datasource: 'This datasource has the following blood relationship. Deleting it will cause the view of related dashboard to be invalid. Are you sure to delete it?',
+    edit_folder: 'Edit Folder',
+    click_to_check: 'Click to check the blood relationship',
     delete_this_item: 'Do you want to delete this item?',
     can_be_uploaded: 'Only files in jar format can be uploaded',
     query_timeout: 'query timeout',
@@ -1917,6 +1966,12 @@ export default {
     back_parent: 'Back to previous'
   },
   panel: {
+    forbidden_copy: 'Forbidden copy',
+    url_check_error: 'Jump error, Illegal URL',
+    view_style: 'View Style',
+    view_color_setting: 'View Color Setting',
+    border_color_setting: 'Border Color',
+    unpublished_tips: 'After unpublishing, the panel cannot be viewed. Are you sure you want to cancel publishing? ',
     position_adjust_component: 'Position adjust',
     active_font_size: 'Selected font size',
     carousel: 'Carousel',
@@ -2003,7 +2058,7 @@ export default {
     yes: 'Yes',
     no: 'No',
     live_tips: 'User Https First',
-    stream_media_add_tips: 'Please Add Stream Media Info...',
+    stream_media_add_tips: 'And Add Stream Media Info...',
     stream_mobile_tips: 'IOS terminal may not display',
     json_params_error: 'Third Party Parameters Parsing Failed. Please Check Whether The Parameters Format Is Correct',
     inner_padding: 'Inner Padding',
@@ -2045,6 +2100,7 @@ export default {
     who_share: 'Who share',
     when_share: 'When share',
     share_to: 'Share to',
+    share_to_some: 'Share [{some}] to',
     org: 'Orgnization',
     role: 'Role',
     user: 'User',
@@ -2062,6 +2118,7 @@ export default {
     delete_success: 'Delete Success',
     confirm: 'Confirm',
     cancel: 'Cancel',
+    save: 'Save',
     search: 'Search',
     back: 'Back',
     view: 'Chart',
@@ -2198,6 +2255,8 @@ export default {
     aided_grid: 'Aided Grid',
     aided_grid_open: 'Open',
     aided_grid_close: 'Close',
+    export_pdf_page: 'Pagination Line',
+    export_pdf_page_remark: 'Only valid for API export dashboard PDF pagination',
     subject_no_edit: 'System Subject Can Not Edit',
     subject_name_not_null: 'Subject Name Can Not Be Null And Less Than 20 charts',
     is_enable: 'Enable',
@@ -2234,8 +2293,9 @@ export default {
     play_circle: 'Circle',
     video_links: 'Video Links',
     web_url: 'Web URL',
-    video_add_tips: 'Please Add Video Info...',
-    web_add_tips: 'Please Add Web Url Info...',
+    video_add_tips: 'And Video Info...',
+    link_add_tips_pre: 'Please click',
+    web_add_tips_suf: 'Add Web Url Info...',
     panel_view_result_show: 'View Result',
     panel_view_result_tips: 'Chose "Panel" Will Overwrite View`s Result,Range 1~10000',
     timeout_refresh: 'Timeout，Will Refresh...',
@@ -2256,7 +2316,13 @@ export default {
     fold: 'Fold',
     expand: 'Expand',
     pdf_export: 'PDF Export',
-    switch_pdf_template: 'Switch PDF Template'
+    switch_pdf_template: 'Switch PDF Template',
+    pdf_template_with_params: 'Default template(with params)',
+    pdf_template_only_pic: 'Default template(only screenshot)',
+    panel_name: 'Panel name',
+    export_user: 'Export User',
+    export_time: 'Export Time',
+    you_can_type_here: 'You can type here'
   },
   plugin: {
     local_install: 'Local installation',
@@ -2379,7 +2445,9 @@ export default {
     standard: 'Standard',
     enterprise: 'Enterprise',
     support: 'Get technical support',
-    update_success: 'Update Success'
+    update_success: 'Update Success',
+    serial_no: 'Serial Number',
+    remark: 'Remark'
   },
   template: {
     exit_same_template_check: 'The Same Name Exists In Now Class. Do You Want To Override It?',
@@ -2568,6 +2636,13 @@ export default {
     search_by_name: 'Search by name',
     exec_time: 'Execute time',
     status: 'Execute status',
+    task_status: 'Task status',
+    running: 'Running',
+    stopped: 'Stopped',
+    start: 'Start',
+    start_success: 'Start success',
+    start_success_but: ', But the task expired, please manually change the end time',
+    sure_batch_delete: 'Are you sure you want to delete tasks in bulk?',
     pixel_error: 'Pixel only support {800 - 10000} * {500 - 6250}',
     next_exec_time: 'Next execute time'
 
@@ -2700,6 +2775,7 @@ export default {
     user: 'User',
     time: 'Time',
     export: 'Export',
+    export_as: 'Export as',
     confirm: 'Sure Export ?',
     search_by_key: 'Search by key',
     ip: 'IP'
@@ -2732,6 +2808,11 @@ export default {
   'I18N_USER_TEMPLATE_ERROR': 'Template file error',
   'i18n_max_user_import_size': 'File size exceeds 10M',
   app_template: {
+    move: 'Move',
+    move_item: 'Move App',
+    datasource_new: 'New',
+    datasource_history: 'Multiplexing',
+    datasource_from: 'Datasource From',
     apply_template: 'Apply template',
     execution_time: 'Execution time',
     app_manager: 'Application management',
@@ -2765,5 +2846,24 @@ export default {
   logout: {
     oidc_logout_error: 'OIDC failed to exit, do you continue to exit DataEase?',
     cas_logout_error: 'The CAS service is abnormal, please contact the administrator!'
+  },
+  watermark: {
+    support_params: 'Currently supported parameters:',
+    enable: 'Watermark Enable',
+    enable_panel_custom: 'Allow the dashboard to open or close the watermark independently',
+    content: 'Watermark Content',
+    custom_content: 'Custom Content',
+    account: 'Account',
+    nick_name: 'Nick Name',
+    ip: 'IP',
+    now: 'Now Time',
+    watermark_color: 'Watermark Color',
+    watermark_font_size: 'Watermark Fontsize',
+    watermark_space: 'Watermark Space',
+    horizontal: 'Horizontal Space',
+    vertical: 'Vertical Space',
+    reset: 'Reset',
+    preview: 'Preview',
+    save: 'Save'
   }
 }

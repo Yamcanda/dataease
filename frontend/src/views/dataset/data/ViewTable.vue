@@ -17,14 +17,14 @@
             v-if="table.mode === 0"
             class="de-tag primary"
           >{{
-            $t('dataset.direct_connect')
-          }}</span>
+              $t('dataset.direct_connect')
+            }}</span>
           <span
             v-if="table.mode === 1"
             class="de-tag warning"
           >{{
-            $t('dataset.sync_data')
-          }}</span>
+              $t('dataset.sync_data')
+            }}</span>
         </template>
         <span
           v-if="syncStatus === 'Underway'"
@@ -33,7 +33,7 @@
         >
           {{ $t('dataset.dataset_sync') }}
         </span>
-        <el-divider direction="vertical" />
+        <el-divider direction="vertical"/>
         <span class="create-by">{{ $t('dataset.create_by') }}</span>
         <span class="create-by">:{{ table.creatorName || 'N/A' }}</span>
         <el-popover
@@ -48,10 +48,7 @@
             :data="table"
             :tab-status="tabStatus"
           />
-          <i
-            slot="reference"
-            class="el-icon-warning-outline detail"
-          />
+          <svg-icon slot="reference" class="detail" icon-class="icon_info_outlined" />
         </el-popover>
       </el-col>
       <el-col
@@ -59,6 +56,7 @@
         :span="8"
       >
         <deBtn
+          v-if="hasDataPermission('manage', param.privileges)"
           :disabled="!previewDataSuccess"
           type="primary"
           icon="el-icon-download"
@@ -79,11 +77,11 @@
           </deBtn>
           <el-dropdown-menu slot="dropdown">
             <el-dropdown-item command="0">
-              <svg-icon icon-class="icon_add-entry_outlined" />
+              <svg-icon icon-class="icon_add-entry_outlined"/>
               {{ $t('dataset.excel_replace') + $t('chart.chart_data') }}
             </el-dropdown-item>
             <el-dropdown-item command="1">
-              <svg-icon icon-class="icon_doc-replace_outlined" />
+              <svg-icon icon-class="icon_doc-replace_outlined"/>
               {{ $t('dataset.excel_add') + $t('chart.chart_data') }}
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -220,7 +218,7 @@
         >
           <div class="tree-cont">
             <div class="content">
-              <rowAuth ref="rowAuth" />
+              <rowAuth ref="rowAuth"/>
             </div>
           </div>
         </el-form-item>
@@ -233,7 +231,8 @@
         <deBtn
           secondary
           @click="closeExport"
-        >{{ $t('dataset.cancel') }}</deBtn>
+        >{{ $t('dataset.cancel') }}
+        </deBtn>
         <deBtn
           type="primary"
           @click="exportDatasetRequest"
@@ -520,12 +519,14 @@ export default {
     border-radius: 4px;
     border: 1px solid var(--deBorderBase, #DCDFE6);
     overflow: auto;
+
     .content {
       height: 100%;
       width: 100%;
     }
   }
 }
+
 .icon-class {
   color: #6c6c6c;
 }
@@ -546,6 +547,7 @@ export default {
   overflow-y: hidden;
   width: 100%;
   box-sizing: border-box;
+
   .de-dataset-name {
     display: flex;
     font-family: PingFang SC;

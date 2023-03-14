@@ -137,7 +137,7 @@
           :target="curComponent.hyperlinks.openMode "
           :href="curComponent.hyperlinks.content "
         >
-          <i class="icon iconfont icon-com-jump" />
+          <i class="icon iconfont icon-com-jump"/>
         </a>
       </span>
 
@@ -278,16 +278,16 @@ export default {
       return JSON.parse(this.chart.yaxis)
     },
     showMapLayerController() {
-      return this.curComponent.type === 'view' && this.terminal === 'pc' && this.curComponent.propValue.innerType === 'map' && this.yaxis.length > 1
+      return this.curComponent.type === 'view' && this.terminal === 'pc' && this.curComponent.propValue.innerType && this.curComponent.propValue.innerType === 'map' && this.yaxis.length > 1
     },
     detailsShow() {
-      return this.curComponent.type === 'view' && this.terminal === 'pc' && this.curComponent.propValue.innerType !== 'richTextView'
+      return this.curComponent.type === 'view' && this.terminal === 'pc' && this.curComponent.propValue.innerType && this.curComponent.propValue.innerType !== 'richTextView'
     },
     enlargeShow() {
-      return this.curComponent.type === 'view' && this.curComponent.propValue.innerType !== 'richTextView'
+      return this.curComponent.type === 'view' && this.curComponent.propValue.innerType && this.curComponent.propValue.innerType !== 'richTextView' && !this.curComponent.propValue.innerType.includes('table')
     },
     selectFieldShow() {
-      return this.activeModel === 'edit' && this.curComponent.type === 'view' && this.curComponent.propValue.innerType === 'richTextView' && this.curComponent.editing
+      return this.activeModel === 'edit' && this.curComponent.type === 'view' && this.curComponent.propValue.innerType && this.curComponent.propValue.innerType === 'richTextView' && this.curComponent.editing
     },
     curComponentTypes() {
       const types = []
@@ -346,10 +346,10 @@ export default {
       return this.targetLinkageInfo[this.element.propValue.viewId]
     },
     miniHeight() {
-      return this.mobileLayoutStatus ? 1 : 4
+      return this.mobileLayoutStatus ? 1 : 1
     },
     miniWidth() {
-      return this.mobileLayoutStatus ? 1 : 4
+      return this.mobileLayoutStatus ? 1 : 1
     },
     curCanvasScaleSelf() {
       return this.curCanvasScaleMap[this.canvasId]
@@ -496,19 +496,7 @@ export default {
     },
     // 清除相同sourceViewId 的 联动条件
     clearLinkage() {
-      this.componentData.forEach(item => {
-        if (item.linkageFilters && item.linkageFilters.length > 0) {
-          const newList = item.linkageFilters.filter(linkage => linkage.sourceViewId !== this.element.propValue.viewId)
-          item.linkageFilters.splice(0, item.linkageFilters.length)
-          // 重新push 可保证数组指针不变 可以watch到
-          if (newList.length > 0) {
-            newList.forEach(newLinkage => {
-              item.linkageFilters.push(newLinkage)
-            })
-          }
-        }
-      })
-      bus.$emit('clear_panel_linkage', { viewId: this.element.propValue.viewId })
+      this.$store.commit('clearViewLinkage', this.element.propValue.viewId)
     },
     goFile() {
       this.$refs.files.click()

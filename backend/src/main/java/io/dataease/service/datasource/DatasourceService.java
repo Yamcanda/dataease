@@ -63,6 +63,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -104,15 +106,13 @@ public class DatasourceService {
 
     @DeCleaner(DePermissionType.DATASOURCE)
     @Transactional(rollbackFor = Exception.class)
-    public Datasource addDatasource(Datasource datasource) throws Exception {
-        if (!types().stream().map(DataSourceType::getType).collect(Collectors.toList()).contains(datasource.getType())) {
-            throw new Exception("Datasource type not supported.");
-        }
+    public Datasource addDatasource(DatasourceDTO datasource) throws Exception {
+        preCheckDs(datasource);
+        return insert(datasource);
+    }
 
-        Provider datasourceProvider = ProviderFactory.getProvider(datasource.getType());
-        datasourceProvider.checkConfiguration(datasource);
-
-        checkName(datasource.getName(), datasource.getType(), datasource.getId());
+    @DeCleaner(DePermissionType.DATASOURCE)
+    public DatasourceDTO insert(DatasourceDTO datasource) {
         long currentTimeMillis = System.currentTimeMillis();
         datasource.setId(UUID.randomUUID().toString());
         datasource.setUpdateTime(currentTimeMillis);
@@ -125,6 +125,17 @@ public class DatasourceService {
         return datasource;
     }
 
+    public void preCheckDs(DatasourceDTO datasource) throws Exception {
+        if (!types().stream().map(DataSourceType::getType).collect(Collectors.toList()).contains(datasource.getType())) {
+            throw new Exception("Datasource type not supported.");
+        }
+        if (datasource.isConfigurationEncryption()) {
+            datasource.setConfiguration(new String(java.util.Base64.getDecoder().decode(datasource.getConfiguration())));
+        }
+        Provider datasourceProvider = ProviderFactory.getProvider(datasource.getType());
+        datasourceProvider.checkConfiguration(datasource);
+        checkName(datasource.getName(), datasource.getType(), datasource.getId());
+    }
 
     public void handleConnectionPool(String datasourceId, String type) {
         Datasource datasource = datasourceMapper.selectByPrimaryKey(datasourceId);
@@ -149,15 +160,21 @@ public class DatasourceService {
     }
 
     public List<DatasourceDTO> getDatasourceList(DatasourceUnionRequest request) throws Exception {
-        request.setSort("update_time desc");
         List<DatasourceDTO> datasourceDTOS = extDataSourceMapper.queryUnion(request);
-        datasourceDTOS.forEach(datasourceDTO -> {
-            datasourceTrans(datasourceDTO);
-        });
+        datasourceDTOS.forEach(this::datasourceTrans);
+        if (StringUtils.isBlank(request.getSort())) {
+            datasourceDTOS.sort((o1,o2) -> {
+                int tmp = StringUtils.compareIgnoreCase(o1.getTypeDesc(), o2.getTypeDesc());
+                if (tmp == 0) {
+                    tmp = StringUtils.compareIgnoreCase(o1.getName(), o2.getName());
+                }
+                return tmp;
+            });
+        }
         return datasourceDTOS;
     }
 
-    private void datasourceTrans(DatasourceDTO datasourceDTO){
+    private void datasourceTrans(DatasourceDTO datasourceDTO) {
         types().forEach(dataSourceType -> {
             if (dataSourceType.getType().equalsIgnoreCase(datasourceDTO.getType())) {
                 datasourceDTO.setTypeDesc(dataSourceType.getName());
@@ -212,15 +229,24 @@ public class DatasourceService {
                 }
             }
         }
+        if (StringUtils.isNotEmpty(datasourceDTO.getConfiguration())) {
+            datasourceDTO.setConfiguration(new String(java.util.Base64.getEncoder().encode(datasourceDTO.getConfiguration().getBytes())));
+        }
+        if (CollectionUtils.isNotEmpty(datasourceDTO.getApiConfiguration())) {
+            String config = new Gson().toJson(datasourceDTO.getApiConfiguration());
+            datasourceDTO.setApiConfigurationStr(new String(java.util.Base64.getEncoder().encode(config.getBytes())));
+            datasourceDTO.setApiConfiguration(null);
+        }
     }
 
-    public DatasourceDTO getDataSourceDetails(String datasourceId){
-        DatasourceDTO result =  extDataSourceMapper.queryDetails(datasourceId,String.valueOf(AuthUtils.getUser().getUserId()));
-        if(result != null){
+    public DatasourceDTO getDataSourceDetails(String datasourceId) {
+        DatasourceDTO result = extDataSourceMapper.queryDetails(datasourceId, String.valueOf(AuthUtils.getUser().getUserId()));
+        if (result != null) {
             this.datasourceTrans(result);
         }
         return result;
     }
+
     public List<DatasourceDTO> gridQuery(BaseGridRequest request) {
         //如果没有查询条件增加一个默认的条件
         if (CollectionUtils.isEmpty(request.getConditions())) {
@@ -250,9 +276,6 @@ public class DatasourceService {
     }
 
     public void updateDatasource(UpdataDsRequest updataDsRequest) throws Exception {
-        if (!types().stream().map(DataSourceType::getType).collect(Collectors.toList()).contains(updataDsRequest.getType())) {
-            throw new Exception("Datasource type not supported.");
-        }
         checkName(updataDsRequest.getName(), updataDsRequest.getType(), updataDsRequest.getId());
         Datasource datasource = new Datasource();
         datasource.setName(updataDsRequest.getName());
@@ -261,15 +284,40 @@ public class DatasourceService {
         datasource.setCreateTime(null);
         datasource.setType(updataDsRequest.getType());
         datasource.setUpdateTime(System.currentTimeMillis());
-
         Provider datasourceProvider = ProviderFactory.getProvider(updataDsRequest.getType());
         datasourceProvider.checkConfiguration(datasource);
+        updateDatasource(updataDsRequest.getId(), datasource);
+    }
 
-        checkAndUpdateDatasourceStatus(datasource);
+
+    public void updateDatasource(String id, Datasource datasource) {
         DatasourceExample example = new DatasourceExample();
-        example.createCriteria().andIdEqualTo(updataDsRequest.getId());
+        example.createCriteria().andIdEqualTo(id);
+        checkAndUpdateDatasourceStatus(datasource);
         datasourceMapper.updateByExampleSelective(datasource, example);
-        handleConnectionPool(updataDsRequest.getId());
+        handleConnectionPool(id);
+
+        if (datasource.getType().equalsIgnoreCase("api")) {
+            DatasetTableExample datasetTableExample = new DatasetTableExample();
+            datasetTableExample.createCriteria().andDataSourceIdEqualTo(id);
+            List<DatasetTable> datasetTables = datasetTableMapper.selectByExample(datasetTableExample);
+            List<ApiDefinition> apiDefinitionList = new Gson().fromJson(datasource.getConfiguration(), new TypeToken<List<ApiDefinition>>() {}.getType());
+            apiDefinitionList.forEach(apiDefinition -> {
+                if(apiDefinition.isReName()){
+                    datasetTables.forEach(datasetTable -> {
+                        if(new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class).getTable().equals(apiDefinition.getOrgName())){
+                            DatasetTable record = new DatasetTable();
+                            DataTableInfoDTO dataTableInfoDTO = new DataTableInfoDTO();
+                            dataTableInfoDTO.setTable(apiDefinition.getName());
+                            record.setInfo(new Gson().toJson(dataTableInfoDTO));
+                            datasetTableExample.clear();
+                            datasetTableExample.createCriteria().andIdEqualTo(datasetTable.getId());
+                            datasetTableMapper.updateByExampleSelective(record, datasetTableExample);
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private void handleConnectionPool(String datasourceId) {
@@ -283,7 +331,10 @@ public class DatasourceService {
         }
     }
 
-    public ResultHolder validate(Datasource datasource) throws Exception {
+    public ResultHolder validate(DatasourceDTO datasource) throws Exception {
+        if (datasource.isConfigurationEncryption()) {
+            datasource.setConfiguration(new String(java.util.Base64.getDecoder().decode(datasource.getConfiguration())));
+        }
         DatasourceDTO datasourceDTO = new DatasourceDTO();
         BeanUtils.copyBean(datasourceDTO, datasource);
         try {
@@ -312,6 +363,7 @@ public class DatasourceService {
 
                 datasourceDTO.setApiConfiguration(apiDefinitionListWithStatus);
                 if (success == apiDefinitionList.size()) {
+                    datasource.setStatus(datasourceStatus);
                     return ResultHolder.success(datasourceDTO);
                 }
                 if (success > 0 && success < apiDefinitionList.size()) {
@@ -336,7 +388,6 @@ public class DatasourceService {
             DatasourceRequest datasourceRequest = new DatasourceRequest();
             datasourceRequest.setDatasource(datasource);
             datasourceStatus = datasourceProvider.checkStatus(datasourceRequest);
-
             if (datasource.getType().equalsIgnoreCase("api")) {
                 List<ApiDefinition> apiDefinitionList = new Gson().fromJson(datasource.getConfiguration(), new TypeToken<List<ApiDefinition>>() {
                 }.getType());
@@ -350,6 +401,7 @@ public class DatasourceService {
                     }
                 }
                 if (success == apiDefinitionList.size()) {
+                    datasource.setStatus(datasourceStatus);
                     return ResultHolder.success(datasource);
                 }
                 if (success > 0 && success < apiDefinitionList.size()) {
@@ -371,7 +423,10 @@ public class DatasourceService {
         }
     }
 
-    public List<String> getSchema(Datasource datasource) throws Exception {
+    public List<String> getSchema(DatasourceDTO datasource) throws Exception {
+        if (datasource.isConfigurationEncryption()) {
+            datasource.setConfiguration(new String(java.util.Base64.getDecoder().decode(datasource.getConfiguration())));
+        }
         Provider datasourceProvider = ProviderFactory.getProvider(datasource.getType());
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDatasource(datasource);
@@ -493,7 +548,7 @@ public class DatasourceService {
         return datasourceMapper.selectByExampleWithBLOBs(example);
     }
 
-    private void checkAndUpdateDatasourceStatus(Datasource datasource) {
+    public void checkAndUpdateDatasourceStatus(Datasource datasource) {
         try {
             Provider datasourceProvider = ProviderFactory.getProvider(datasource.getType());
             DatasourceRequest datasourceRequest = new DatasourceRequest();
@@ -591,6 +646,27 @@ public class DatasourceService {
     public void initDsCheckJob() {
         BasicInfo basicInfo = systemParameterService.basicInfo();
         addJob(basicInfo.getDsCheckIntervalType(), Integer.valueOf(basicInfo.getDsCheckInterval()));
+    }
+
+    public void updateDemoDs() {
+        Datasource datasource = datasourceMapper.selectByPrimaryKey("76026997-94f9-4a35-96ca-151084638969");
+        if(datasource == null){
+            return;
+        }
+        MysqlConfiguration mysqlConfiguration = new Gson().fromJson(datasource.getConfiguration(), MysqlConfiguration.class);
+        Pattern WITH_SQL_FRAGMENT = Pattern.compile("jdbc:mysql://(.*):(\\d+)/(.*)");
+        Matcher matcher = WITH_SQL_FRAGMENT.matcher(env.getProperty("spring.datasource.url"));
+        if (!matcher.find()) {
+            return;
+        }
+        mysqlConfiguration.setHost(matcher.group(1));
+        mysqlConfiguration.setPort(Integer.valueOf(matcher.group(2)));
+        mysqlConfiguration.setDataBase(matcher.group(3).split("\\?")[0]);
+        mysqlConfiguration.setExtraParams(matcher.group(3).split("\\?")[1]);
+        mysqlConfiguration.setUsername(env.getProperty("spring.datasource.username"));
+        mysqlConfiguration.setPassword(env.getProperty("spring.datasource.password"));
+        datasource.setConfiguration(new Gson().toJson(mysqlConfiguration));
+        datasourceMapper.updateByPrimaryKeyWithBLOBs(datasource);
     }
 
 }

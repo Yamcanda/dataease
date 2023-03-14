@@ -71,7 +71,10 @@
           @click="redo"
         />
       </el-tooltip>
-      <el-tooltip :content="$t('panel.fullscreen_preview')">
+      <el-tooltip
+        v-if="!isOtherPlatform"
+        :content="$t('panel.fullscreen_preview')"
+      >
         <svg-icon
           icon-class="icon_magnify_outlined"
           class="toolbar-icon-active icon16"
@@ -148,6 +151,30 @@
                 :class="[{['grid-active']: panelInfo.watermarkOpen},'margin-left8']"
                 size="mini"
                 @change="styleChange"
+              />
+            </el-dropdown-item>
+
+            <el-dropdown-item v-if="showPdfPageButton">
+              <span>
+                <svg-icon
+                  style="width: 16px; height: 16px;"
+                  icon-class="page-line"
+                />
+              </span>
+              <el-tooltip
+                class="item"
+                :content="$t('panel.export_pdf_page_remark')"
+                placement="top-start"
+              >
+
+                <span class="text14 margin-left8">{{ $t('panel.export_pdf_page') }}</span>
+
+              </el-tooltip>
+              <el-switch
+                v-model="showPageLine"
+                :class="[{['grid-active']: showPageLine},'margin-left8']"
+                size="mini"
+                @change="showPageLineChange"
               />
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -235,7 +262,7 @@ import { panelUpdate, removePanelCache, saveCache } from '@/api/panel/panel'
 import { getPanelAllLinkageInfo, saveLinkage } from '@/api/panel/linkage'
 import bus from '@/utils/bus'
 import { queryPanelJumpInfo } from '@/api/panel/linkJump'
-
+import { inOtherPlatform } from '@/utils/index'
 export default {
   name: 'Toolbar',
   props: {
@@ -244,6 +271,7 @@ export default {
   },
   data() {
     return {
+      showPageLine: false,
       showGridSwitch: false,
       mobileLayoutInitStatus: false,
       isShowPreview: false,
@@ -258,7 +286,8 @@ export default {
       scale: '100%',
       timer: null,
       changes: 0,
-      closePanelVisible: false
+      closePanelVisible: false,
+      showPdfPageButton: false
     }
   },
   computed: {
@@ -273,6 +302,9 @@ export default {
     },
     editControlButton() {
       return this.linkageSettingStatus || this.mobileLayoutStatus
+    },
+    isOtherPlatform() {
+      return inOtherPlatform()
     },
     ...mapState([
       'componentData',
@@ -299,6 +331,7 @@ export default {
     this.scale = this.canvasStyleData.scale
     this.mobileLayoutInitStatus = this.mobileLayoutStatus
     this.showGridSwitch = this.canvasStyleData.aidedDesign.showGrid
+    this.showPageLine = this.canvasStyleData.pdfPageLine?.showPageLine
     this.autoCache()
   },
   beforeDestroy() {
@@ -317,6 +350,7 @@ export default {
     },
     editPanelInit() {
       this.showGridSwitch = this.canvasStyleData.aidedDesign.showGrid
+      this.showPageLine = this.canvasStyleData.pdfPageLine?.showPageLine
     },
     close() {
       // 关闭页面清理缓存
@@ -582,6 +616,10 @@ export default {
     showGridChange() {
       this.$store.commit('canvasChange')
       this.canvasStyleData.aidedDesign.showGrid = !this.canvasStyleData.aidedDesign.showGrid
+    },
+    showPageLineChange() {
+      this.$store.commit('canvasChange')
+      this.canvasStyleData.pdfPageLine.showPageLine = !this.canvasStyleData.pdfPageLine.showPageLine
     },
     // batch option
     batchOption() {

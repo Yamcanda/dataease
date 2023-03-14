@@ -47,6 +47,7 @@ import { isSameVueObj, mergeCustomSortOption } from '@/utils'
 import { getLinkToken, getToken } from '@/utils/auth'
 import customInput from '@/components/widget/deWidget/customInput'
 import { textSelectWidget } from '@/components/widget/deWidget/serviceNameFn.js'
+
 export default {
   components: { ElVisualSelect },
   mixins: [customInput],
@@ -156,6 +157,7 @@ export default {
       this.element.options.attrs.fieldId.length > 0 &&
       method(param).then(res => {
         this.data = this.optionData(res.data)
+        this.clearDefault(this.data)
         bus.$emit('valid-values-change', true)
       }).catch(e => {
         bus.$emit('valid-values-change', false)
@@ -227,6 +229,27 @@ export default {
     bus.$off('reset-default-value', this.resetDefaultValue)
   },
   methods: {
+    clearDefault(optionList) {
+      const emptyOption = !optionList?.length
+
+      if (!this.inDraw && this.element.options.value) {
+        if (Array.isArray(this.element.options.value)) {
+          if (emptyOption) {
+            this.element.options.value = []
+            return
+          }
+          const tempValueArray = JSON.parse(JSON.stringify(this.element.options.value))
+          this.element.options.value = tempValueArray.filter(item => optionList.some(option => option === item))
+        } else {
+          if (emptyOption) {
+            this.element.options.value = ''
+            return
+          }
+          const tempValueArray = JSON.parse(JSON.stringify(this.element.options.value.split(',')))
+          this.element.options.value = tempValueArray.filter(item => optionList.some(option => option === item)).join(',')
+        }
+      }
+    },
     clearHandler() {
       this.value = this.element.options.attrs.multiple ? [] : null
       this.$refs.deSelect && this.$refs.deSelect.resetSelectAll && this.$refs.deSelect.resetSelectAll()
@@ -251,10 +274,20 @@ export default {
     handleElTagStyle() {
       setTimeout(() => {
         this.$refs['deSelect'] && this.$refs['deSelect'].$el && textSelectWidget(this.$refs['deSelect'].$el, this.element.style)
-      }, 50)
+      }, 500)
     },
     initLoad() {
       this.value = this.fillValueDerfault()
+      this.initOptions()
+      if (this.element.options.value) {
+        this.value = this.fillValueDerfault()
+        this.changeValue(this.value)
+      }
+    },
+    refreshLoad() {
+      this.initOptions()
+    },
+    initOptions() {
       this.data = []
       if (this.element.options.attrs.fieldId) {
         let method = multFieldValues
@@ -272,10 +305,6 @@ export default {
         }).catch(e => {
           bus.$emit('valid-values-change', false)
         })
-      }
-      if (this.element.options.value) {
-        this.value = this.fillValueDerfault()
-        this.changeValue(this.value)
       }
     },
     visualChange(value) {

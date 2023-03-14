@@ -14,6 +14,7 @@ import io.dataease.dto.PermissionProxy;
 import io.dataease.dto.authModel.VAuthModelDTO;
 import io.dataease.dto.panel.PanelExport2App;
 import io.dataease.dto.panel.PanelGroupDTO;
+import io.dataease.plugins.common.base.domain.PanelGroup;
 import io.dataease.service.panel.PanelGroupService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -50,6 +51,12 @@ public class PanelGroupController {
         return panelGroupService.tree(request);
     }
 
+    @ApiOperation("查询当前用户仪表板")
+    @GetMapping("/list")
+    public List<PanelGroup> list() {
+        return panelGroupService.list();
+    }
+
     @ApiOperation("默认树")
     @PostMapping("/defaultTree")
     public List<PanelGroupDTO> defaultTree(@RequestBody PanelGroupRequest request) {
@@ -81,7 +88,7 @@ public class PanelGroupController {
             @DePermission(type = DePermissionType.PANEL, value = "pid", level = ResourceAuthLevel.PANEL_LEVEL_MANAGE)
     }, logical = Logical.AND)
     @I18n
-    public String update(@RequestBody PanelGroupRequest request) {
+    public PanelGroupDTO update(@RequestBody PanelGroupRequest request) {
         return panelGroupService.update(request);
     }
 

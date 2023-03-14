@@ -67,8 +67,8 @@
           >
             {{ $t('chart.total') }}
             <span>{{
-              chart.datasetMode === 0 ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
-            }}</span>
+                (chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
+              }}</span>
             {{ $t('chart.items') }}
           </span>
           <de-pagination
@@ -101,10 +101,15 @@ import { DEFAULT_TITLE_STYLE, NOT_SUPPORT_PAGE_DATASET } from '@/views/chart/cha
 import ChartTitleUpdate from './ChartTitleUpdate.vue'
 import { mapState } from 'vuex'
 import DePagination from '@/components/deCustomCm/pagination.js'
+
 export default {
   name: 'ChartComponentS2',
   components: { TitleRemark, ViewTrackBar, ChartTitleUpdate, DePagination },
   props: {
+    terminalType: {
+      type: String,
+      default: 'pc'
+    },
     chart: {
       type: Object,
       required: true
@@ -173,7 +178,8 @@ export default {
       },
       totalStyle: {
         color: '#606266'
-      }
+      },
+      not_support_page_dataset: NOT_SUPPORT_PAGE_DATASET
     }
   },
 
@@ -182,12 +188,16 @@ export default {
       return this.previewCanvasScale.scalePointWidth
     },
     autoStyle() {
-      return {
-        height: (100 / this.scale) + '%!important',
-        width: (100 / this.scale) + '%!important',
-        left: 50 * (1 - 1 / this.scale) + '%', // 放大余量 除以 2
-        top: 50 * (1 - 1 / this.scale) + '%', // 放大余量 除以 2
-        transform: 'scale(' + this.scale + ')'
+      if (this.terminalType === 'pc') {
+        return {
+          height: (100 / this.scale) + '%!important',
+          width: (100 / this.scale) + '%!important',
+          left: 50 * (1 - 1 / this.scale) + '%', // 放大余量 除以 2
+          top: 50 * (1 - 1 / this.scale) + '%', // 放大余量 除以 2
+          transform: 'scale(' + this.scale + ')'
+        }
+      } else {
+        return {}
       }
     },
     trackBarStyleTime() {
@@ -298,7 +308,7 @@ export default {
       } else if (chart.type === 'table-normal') {
         this.myChart = baseTableNormal(this.myChart, this.chartId, chart, this.antVAction, this.tableData)
       } else if (chart.type === 'table-pivot') {
-        this.myChart = baseTablePivot(this.myChart, this.chartId, chart, this.antVAction, this.tableData)
+        this.myChart = baseTablePivot(this.myChart, this.chartId, chart, this.antVAction, this.tableHeaderClick, this.tableData)
       } else {
         if (this.myChart) {
           this.antVRenderStatus = false
@@ -329,7 +339,7 @@ export default {
       if (this.chart.type === 'table-pivot') {
         rowData = { ...meta.rowQuery, ...meta.colQuery }
         rowData[meta.valueField] = meta.fieldValue
-      } else if (this.showPage) {
+      } else if (this.showPage && (this.chart.datasetMode === 1 || (this.chart.datasetMode === 0 && this.not_support_page_dataset.includes(this.chart.datasourceType)))) {
         const rowIndex = (this.currentPage.page - 1) * this.currentPage.pageSize + meta.rowIndex
         rowData = this.chart.data.tableRow[rowIndex]
       } else {
@@ -337,16 +347,19 @@ export default {
       }
       const dimensionList = []
       for (const key in rowData) {
-        if (meta.fieldValue === rowData[key]) {
+        if (nameIdMap[key]) {
           dimensionList.push({ id: nameIdMap[key], value: rowData[key] })
         }
       }
-
+      this.antVActionPost(dimensionList, nameIdMap[meta.valueField] || 'null', param)
+    },
+    antVActionPost(dimensionList, name, param) {
       this.pointParam = {
         data: {
           dimensionList: dimensionList,
           quotaList: [],
-          name: meta.fieldValue || 'null'
+          name: name,
+          sourceType: this.chart.type
         }
       }
 
@@ -357,6 +370,22 @@ export default {
         this.trackBarStyle.top = (param.y + 10) + 'px'
         this.$refs.viewTrack.trackButtonClick()
       }
+    },
+    tableHeaderClick(param) {
+      const cell = this.myChart.getCell(param.target)
+      const meta = cell.getMeta()
+      const rowData = meta.query
+      const nameIdMap = this.chart.data.fields.reduce((pre, next) => {
+        pre[next['dataeaseName']] = next['id']
+        return pre
+      }, {})
+      const dimensionList = []
+      for (const key in rowData) {
+        if (nameIdMap[key]) {
+          dimensionList.push({ id: nameIdMap[key], value: rowData[key] })
+        }
+      }
+      this.antVActionPost(dimensionList, nameIdMap[meta.field] || 'null', param)
     },
     setBackGroundBorder() {
       if (this.chart.customStyle) {
@@ -397,7 +426,8 @@ export default {
         name: this.pointParam.data.name,
         viewId: this.chart.id,
         dimensionList: this.pointParam.data.dimensionList,
-        quotaList: this.pointParam.data.quotaList
+        quotaList: this.pointParam.data.quotaList,
+        sourceType: this.pointParam.data.sourceType
       }
       switch (trackAction) {
         case 'drill':

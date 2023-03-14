@@ -2,6 +2,7 @@
   <el-row class="component-wait">
     <el-tabs
       v-model="activeName"
+      class="wait-tab"
       style="padding-left: 10px"
     >
       <el-tab-pane
@@ -141,7 +142,7 @@ export default {
   height: 100%;
 }
 
-::v-deep .el-tabs--top {
+.wait-tab {
   height: 40px !important;
   background-color: #9ea6b2;
 }

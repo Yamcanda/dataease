@@ -34,6 +34,7 @@ import io.dataease.plugins.common.base.mapper.*;
 import io.dataease.plugins.common.constants.DatasetType;
 import io.dataease.plugins.common.constants.DatasourceTypes;
 import io.dataease.plugins.common.constants.DeTypeConstants;
+import io.dataease.plugins.common.dto.chart.ChartViewFieldDTO;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
 import io.dataease.plugins.common.dto.datasource.DataSourceType;
 import io.dataease.plugins.common.dto.datasource.TableField;
@@ -712,6 +713,7 @@ public class DataSetTableService {
                 datasourceRequest.setPreviewData(true);
                 try {
                     datasourceRequest.setPageable(true);
+                    datasourceRequest.setPermissionFields(fields);
                     data.addAll(datasourceProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
@@ -967,26 +969,19 @@ public class DataSetTableService {
         return map;
     }
 
-    public List<SqlVariableDetails> paramsWithIds(String type, List<String> viewIds) {
-        if (CollectionUtils.isEmpty(viewIds)) {
-            return new ArrayList<>();
-        }
-
+    public List<SqlVariableDetails> datasetParams(String type, String id) {
         if (!Arrays.asList("DATE", "TEXT", "NUM").contains(type)) {
             return new ArrayList<>();
         }
-        ChartViewExample chartViewExample = new ChartViewExample();
-        chartViewExample.createCriteria().andIdIn(viewIds);
-        List<String> datasetIds = chartViewMapper.selectByExample(chartViewExample).stream().map(ChartView::getTableId).collect(Collectors.toList());
-        if (CollectionUtils.isEmpty(datasetIds)) {
-            return new ArrayList<>();
+        DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(id);
+        if (datasetTable != null) {
+            return getSqlVariableDetails(type, Arrays.asList(datasetTable));
+        } else {
+            return null;
         }
-        DatasetTableExample datasetTableExample = new DatasetTableExample();
-        datasetTableExample.createCriteria().andIdIn(datasetIds);
-        List<DatasetTable> datasetTables = datasetTableMapper.selectByExample(datasetTableExample);
-        if (CollectionUtils.isEmpty(datasetTables)) {
-            return new ArrayList<>();
-        }
+    }
+
+    private List<SqlVariableDetails> getSqlVariableDetails(String type, List<DatasetTable> datasetTables) {
         List<SqlVariableDetails> sqlVariableDetails = new ArrayList<>();
         for (DatasetTable datasetTable : datasetTables) {
             if (StringUtils.isNotEmpty(datasetTable.getSqlVariableDetails())) {
@@ -999,6 +994,7 @@ public class DataSetTableService {
                 }
             }
         }
+
         switch (type) {
             case "DATE":
                 sqlVariableDetails = sqlVariableDetails.stream().filter(item -> item.getType().get(0).contains("DATETIME")).collect(Collectors.toList());
@@ -1020,6 +1016,29 @@ public class DataSetTableService {
                 break;
         }
         return sqlVariableDetails;
+    }
+
+    public List<SqlVariableDetails> paramsWithIds(String type, List<String> viewIds) {
+        if (CollectionUtils.isEmpty(viewIds)) {
+            return new ArrayList<>();
+        }
+
+        if (!Arrays.asList("DATE", "TEXT", "NUM").contains(type)) {
+            return new ArrayList<>();
+        }
+        ChartViewExample chartViewExample = new ChartViewExample();
+        chartViewExample.createCriteria().andIdIn(viewIds);
+        List<String> datasetIds = chartViewMapper.selectByExample(chartViewExample).stream().map(ChartView::getTableId).collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(datasetIds)) {
+            return new ArrayList<>();
+        }
+        DatasetTableExample datasetTableExample = new DatasetTableExample();
+        datasetTableExample.createCriteria().andIdIn(datasetIds);
+        List<DatasetTable> datasetTables = datasetTableMapper.selectByExample(datasetTableExample);
+        if (CollectionUtils.isEmpty(datasetTables)) {
+            return new ArrayList<>();
+        }
+        return getSqlVariableDetails(type, datasetTables);
     }
 
 
@@ -1073,7 +1092,7 @@ public class DataSetTableService {
         if (!hasVariables && !tmpSql.contains(SubstitutedParams)) {
             return tmpSql;
         }
-        CCJSqlParserUtil.parse(tmpSql, parser -> parser.withSquareBracketQuotation(true));
+
         Statement statement = CCJSqlParserUtil.parse(tmpSql);
         Select select = (Select) statement;
 
@@ -1103,9 +1122,37 @@ public class DataSetTableService {
             if (dsType.equals(DatasourceTypes.oracle.getType())) {
                 subSelect.setAlias(new Alias(fromItem.getAlias().toString(), false));
             } else {
-                subSelect.setAlias(new Alias(fromItem.getAlias().toString()));
+                if (fromItem.getAlias() == null) {
+                    throw new Exception("Failed to parse sql, Every derived table must have its own alias！");
+                }
+                subSelect.setAlias(new Alias(fromItem.getAlias().toString(), false));
             }
             plainSelect.setFromItem(subSelect);
+        }
+        List<Join> joins = plainSelect.getJoins();
+        if (joins != null) {
+            List<Join> joinsList = new ArrayList<>();
+            for (Join join : joins) {
+                FromItem rightItem = join.getRightItem();
+                if (rightItem instanceof SubSelect) {
+                    SelectBody selectBody = ((SubSelect) rightItem).getSelectBody();
+                    SubSelect subSelect = new SubSelect();
+                    Select subSelectTmp = (Select) CCJSqlParserUtil.parse(removeVariables(selectBody.toString(), dsType));
+                    PlainSelect subPlainSelect = ((PlainSelect) subSelectTmp.getSelectBody());
+                    subSelect.setSelectBody(subPlainSelect);
+                    if (dsType.equals(DatasourceTypes.oracle.getType())) {
+                        subSelect.setAlias(new Alias(rightItem.getAlias().toString(), false));
+                    } else {
+                        if (rightItem.getAlias() == null) {
+                            throw new Exception("Failed to parse sql, Every derived table must have its own alias！");
+                        }
+                        subSelect.setAlias(new Alias(rightItem.getAlias().toString(), false));
+                    }
+                    join.setRightItem(subSelect);
+                }
+                joinsList.add(join);
+            }
+            plainSelect.setJoins(joinsList);
         }
         Expression expr = plainSelect.getWhere();
         if (expr == null) {
@@ -2359,13 +2406,13 @@ public class DataSetTableService {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         if (StringUtils.equalsIgnoreCase(suffix, "xls")) {
             ExcelXlsReader excelXlsReader = new ExcelXlsReader();
-            excelXlsReader.setObtainedNum(100);
+            excelXlsReader.setObtainedNum(1000);
             excelXlsReader.process(inputStream);
             excelSheetDataList = excelXlsReader.totalSheets;
         }
         if (StringUtils.equalsIgnoreCase(suffix, "xlsx")) {
             ExcelXlsxReader excelXlsxReader = new ExcelXlsxReader();
-            excelXlsxReader.setObtainedNum(100);
+            excelXlsxReader.setObtainedNum(1000);
             excelXlsxReader.process(inputStream);
             excelSheetDataList = excelXlsxReader.totalSheets;
         }
@@ -2386,7 +2433,7 @@ public class DataSetTableService {
             int num = 1;
             String line;
             while ((line = reader.readLine()) != null) {
-                if (num > 100) {
+                if (num > 1000) {
                     break;
                 }
                 data.add(Arrays.asList(line.split(",")));
@@ -2410,7 +2457,7 @@ public class DataSetTableService {
                 jsonArray = data.stream().map(ele -> {
                     Map<String, Object> map = new HashMap<>();
                     for (int i = 0; i < fieldArray.length; i++) {
-                        map.put(fieldArray[i], ele.get(i));
+                        map.put(fieldArray[i], i < ele.size() ? ele.get(i) : "");
                     }
                     return map;
                 }).collect(Collectors.toList());
@@ -2805,7 +2852,7 @@ public class DataSetTableService {
                 boolean hasSubBinaryExpression = false;
                 try {
                     BinaryExpression leftBinaryExpression = (BinaryExpression) expr.getLeftExpression();
-                    hasSubBinaryExpression = leftBinaryExpression.getLeftExpression() instanceof BinaryExpression;
+                    hasSubBinaryExpression = leftBinaryExpression instanceof AndExpression || leftBinaryExpression instanceof OrExpression;
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -2820,8 +2867,8 @@ public class DataSetTableService {
                 hasSubBinaryExpression = false;
                 try {
                     BinaryExpression rightBinaryExpression = (BinaryExpression) expr.getRightExpression();
-                    hasSubBinaryExpression = rightBinaryExpression.getRightExpression() instanceof BinaryExpression;
-
+                    hasSubBinaryExpression = rightBinaryExpression instanceof AndExpression || rightBinaryExpression instanceof OrExpression;
+                    ;
                 } catch (Exception e) {
                 }
                 if (expr.getRightExpression() instanceof BinaryExpression && !hasSubBinaryExpression && hasVariable(expr.getRightExpression().toString())) {

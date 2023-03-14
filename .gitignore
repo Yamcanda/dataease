@@ -58,3 +58,5 @@ pnpm-debug.log*
 package-lock.json
 
 .history/
+.github
+.husky

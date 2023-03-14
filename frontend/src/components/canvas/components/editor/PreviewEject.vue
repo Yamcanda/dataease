@@ -29,7 +29,7 @@ export default {
   data() {
     return {
       canvasId: 'canvas-main',
-      dataLoading: false,
+      dataLoading: true,
       backScreenShot: false,
       mainHeight: '100vh!important',
       shareUserId: null
@@ -139,6 +139,10 @@ export default {
           sourceFieldId: jumpParam.sourceFieldId,
           targetPanelId: this.panelId
         }
+        //透视表中的其他维度数据数据都进行匹配
+        if (jumpParam.sourceType && jumpParam.sourceType === 'table-pivot') {
+          jumpRequestParam.sourceFieldId = null
+        }
         try {
           // 刷新跳转目标仪表板联动信息
           queryTargetPanelJumpInfo(jumpRequestParam).then(rsp => {
@@ -171,12 +175,12 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-  .bg {
-    width: 100%;
-    height: 100vh!important;
-    min-width: 200px;
-    min-height: 300px;
-    background-color: #f7f8fa;
-  }
+.bg {
+  width: 100%;
+  height: 100vh !important;
+  min-width: 200px;
+  min-height: 300px;
+  background-color: #f7f8fa;
+}
 </style>
 

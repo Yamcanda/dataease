@@ -80,8 +80,7 @@ public class XDingtalkServer {
         return dingtalkXpackService.getQrParam();
     }
 
-    @GetMapping("/callBack")
-    public ModelAndView callBack(@RequestParam("code") String code, @RequestParam("state") String state) {
+    private ModelAndView privateCallBack(String code, Boolean withoutLogin) {
         ModelAndView modelAndView = new ModelAndView("redirect:/");
         HttpServletResponse response = ServletUtils.response();
         DingtalkXpackService dingtalkXpackService = null;
@@ -95,7 +94,7 @@ public class XDingtalkServer {
             if (!isOpen) {
                 DEException.throwException("未开启钉钉");
             }
-            DingUserEntity dingUserEntity = dingtalkXpackService.userInfo(code);
+            DingUserEntity dingUserEntity = withoutLogin ? dingtalkXpackService.userInfoWithoutLogin(code) : dingtalkXpackService.userInfo(code);
             String username = dingUserEntity.getUserid();
             SysUserEntity sysUserEntity = authUserService.getUserByDingtalkId(username);
             if (null == sysUserEntity) {
@@ -116,6 +115,11 @@ public class XDingtalkServer {
             DeLogUtils.save(SysLogConstants.OPERATE_TYPE.LOGIN, SysLogConstants.SOURCE_TYPE.USER, sysUserEntity.getUserId(), null, null, null);
 
             Cookie cookie_token = new Cookie("Authorization", token);
+            if (withoutLogin) {
+                Cookie platformCookie = new Cookie("inOtherPlatform", "true");
+                platformCookie.setPath("/");
+                response.addCookie(platformCookie);
+            }
             cookie_token.setPath("/");
 
             response.addCookie(cookie_token);
@@ -137,6 +141,16 @@ public class XDingtalkServer {
             }
         }
         return modelAndView;
+    }
+
+    @GetMapping("/callBackWithoutLogin")
+    public ModelAndView callBackWithoutLogin(@RequestParam("code") String code) {
+        return privateCallBack(code, true);
+    }
+
+    @GetMapping("/callBack")
+    public ModelAndView callBack(@RequestParam("code") String code, @RequestParam("state") String state) {
+        return privateCallBack(code, false);
     }
 
     private void bindError(HttpServletResponse response, String url, String errorMsg) {

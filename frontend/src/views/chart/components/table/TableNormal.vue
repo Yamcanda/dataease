@@ -21,6 +21,7 @@
         :row-style="getRowStyle"
         class="table-class"
         :class="chart.id"
+        :merge-cells="mergeCells"
         :show-summary="showSummary"
         :summary-method="summaryMethod"
         :index-config="{seqMethod}"
@@ -32,12 +33,20 @@
         <ux-table-column
           v-for="field in fields"
           :key="field.name"
-          :field="field.dataeaseName"
+          :field="field.child ? '' : field.dataeaseName"
           :resizable="true"
-          sortable
+          :sortable="(!mergeCells || !mergeCells.length) && (!field.child || !field.child.length)"
           :title="field.name"
           :width="columnWidth"
-        />
+        >
+          <ux-table-column
+            v-for="item in field.child"
+            :key="field.name + item.name"
+            :field="item.dataeaseName"
+            :title="item.name"
+            :width="columnWidth"
+          />
+        </ux-table-column>
       </ux-grid>
 
       <el-row
@@ -55,7 +64,7 @@
             >
               {{ $t('chart.total') }}
               <span>{{
-                chart.datasetMode === 0 ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
+                (chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
               }}</span>
               {{ $t('chart.items') }}
             </span>
@@ -117,6 +126,7 @@ export default {
   data() {
     return {
       fields: [],
+      detailFields: [],
       height: 'auto',
       title_class: {
         margin: '0 0',
@@ -166,7 +176,9 @@ export default {
       scrollBarHoverColor: DEFAULT_COLOR_CASE.tableScrollBarHoverColor,
       totalStyle: {
         color: '#606266'
-      }
+      },
+      not_support_page_dataset: NOT_SUPPORT_PAGE_DATASET,
+      mergeCells: []
     }
   },
   computed: {
@@ -234,7 +246,15 @@ export default {
       let data = []
       this.showPage = false
       if (this.chart.data) {
-        this.fields = JSON.parse(JSON.stringify(this.chart.data.fields))
+        const fields = JSON.parse(JSON.stringify(this.chart.data.fields))
+        if (this.chart.data.detailFields) {
+          fields.forEach(field => {
+            if (field.id === 'DataEase-Detail' && field.dataeaseName === 'detail') {
+              field.child = JSON.parse(JSON.stringify(this.chart.data.detailFields))
+            }
+          })
+        }
+        this.fields = fields
         const attr = JSON.parse(this.chart.customAttr)
         this.currentPage.pageSize = parseInt(attr.size.tablePageSize ? attr.size.tablePageSize : 20)
 
@@ -268,13 +288,38 @@ export default {
         data = []
         this.resetPage()
       }
-      data.forEach(item => {
-        Object.keys(item).forEach(key => {
-          if (typeof item[key] === 'object') {
-            item[key] = ''
+      if (this.chart.data.detailFields?.length) {
+        let result = []
+        let groupRowIndex = 0
+        data.forEach(item => {
+          const baseObj = JSON.parse(JSON.stringify(item))
+          delete baseObj.details
+
+          const details = JSON.parse(JSON.stringify(item.details))
+          let colsIndex = this.fields.length - 1
+          while (colsIndex--) {
+            const mergeItem = {
+              row: groupRowIndex,
+              col: colsIndex,
+              rowspan: details.length,
+              colspan: 1
+            }
+            this.mergeCells.push(mergeItem)
           }
+          groupRowIndex += details.length
+          result = result.concat(details.map(detail => Object.assign(detail, baseObj)))
         })
-      })
+        data = result
+      } else {
+        data.forEach(item => {
+          Object.keys(item).forEach(key => {
+            if (typeof item[key] === 'object') {
+              item[key] = ''
+            }
+          })
+        })
+      }
+
       this.$refs.plxTable.reloadData(data)
       this.$nextTick(() => {
         this.initStyle()
@@ -294,6 +339,12 @@ export default {
           if (this.chart.data) {
             if (this.chart.type === 'table-info') {
               tableHeight = (this.currentPage.pageSize + 2) * 36 - pageHeight
+            } else if (this.chart.data.detailFields?.length) {
+              let rowLength = 0
+              this.chart.data.tableRow.forEach(row => {
+                rowLength += (row?.details?.length || 1)
+              })
+              tableHeight = (rowLength + 2) * 36 - pageHeight
             } else {
               tableHeight = (this.chart.data.tableRow.length + 2) * 36 - pageHeight
             }

@@ -241,11 +241,12 @@
 
 <script>
 import { compareItem } from '@/views/chart/chart/compare'
-import { getItemType, getOriginFieldName } from '@/views/chart/components/dragItem/utils'
+import { getItemType, getOriginFieldName, resetValueFormatter } from '@/views/chart/components/dragItem/utils'
 import FieldErrorTips from '@/views/chart/components/dragItem/components/FieldErrorTips'
 import bus from '@/utils/bus'
 import { formatterItem } from '@/views/chart/chart/formatter'
 import { quotaViews } from '@/views/chart/chart/util'
+import { SUPPORT_Y_M } from '@/views/chart/chart/chart'
 
 export default {
   name: 'QuotaExtItem',
@@ -318,13 +319,13 @@ export default {
     },
     isEnableCompare() {
       let xAxis = null
-      if (Object.prototype.toString.call(this.chart.xaxis) === '[object Array]') {
-        xAxis = JSON.parse(JSON.stringify(this.chart.xaxis))
+      if (Object.prototype.toString.call(this.chart.xaxisExt) === '[object Array]') {
+        xAxis = JSON.parse(JSON.stringify(this.chart.xaxisExt))
       } else {
-        xAxis = JSON.parse(this.chart.xaxis)
+        xAxis = JSON.parse(this.chart.xaxisExt)
       }
       const t1 = xAxis.filter(ele => {
-        return ele.deType === 1
+        return ele.deType === 1 && SUPPORT_Y_M.includes(ele.dateStyle)
       })
       // 暂时只支持类别轴/维度的时间类型字段
       if (t1.length > 0 && this.chart.type !== 'text' && this.chart.type !== 'label' && this.chart.type !== 'gauge' && this.chart.type !== 'liquid') {
@@ -383,10 +384,14 @@ export default {
     quickCalc(param) {
       switch (param.type) {
         case 'none':
+          // 选择占比外，设置自动
+          resetValueFormatter(this.item)
           this.item.compareCalc.type = 'none'
           this.$emit('onQuotaItemChange', this.item)
           break
         case 'setting':
+          // 选择占比外，设置自动
+          resetValueFormatter(this.item)
           this.editCompare()
           break
         case 'percent':
