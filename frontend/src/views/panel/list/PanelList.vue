@@ -850,7 +850,7 @@ export default {
 
     delete(data) {
       const params = {
-        title: 'commons.delete_this_dashboard',
+        title: data.nodeType === 'folder'?'commons.delete_this_folder':'commons.delete_this_dashboard',
         type: 'danger',
         cb: () => {
           delGroup(data.id).then((response) => {
@@ -899,7 +899,7 @@ export default {
       groupTree(this.groupForm, !userCache).then((res) => {
         localStorage.setItem('panel-main-tree', JSON.stringify(res.data || []))
         if (!userCache) {
-          this.tData = res.data
+          this.tData = res.data || []
         }
         if (this.responseSource === 'appApply') {
           this.fromAppActive()
@@ -1127,8 +1127,9 @@ export default {
     },
     filterNode(value, data) {
       if (!value) return true
+      const result = data.label.toLowerCase().indexOf(value.toLowerCase()) !== -1
       if (this.searchType === 'folder') {
-        if (data.nodeType === 'folder' && data.label.indexOf(value) !== -1) {
+        if (data.nodeType === 'folder' && result) {
           this.searchPids.push(data.id)
           return true
         }
@@ -1139,7 +1140,7 @@ export default {
           return true
         }
       } else {
-        return data.label.indexOf(value) !== -1
+        return result
       }
       return false
     },

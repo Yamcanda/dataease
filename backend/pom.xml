@@ -5,7 +5,7 @@
     <parent>
         <artifactId>dataease-server</artifactId>
         <groupId>io.dataease</groupId>
-        <version>1.18.4</version>
+        <version>${dataease.version}</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -24,7 +24,6 @@
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -195,7 +194,7 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <version>6.8</version>
+            <version>7.7.0</version>
             <scope>test</scope>
         </dependency>
         <!-- ehcache 缓存 -->
@@ -224,12 +223,12 @@
         <dependency>
             <groupId>io.dataease</groupId>
             <artifactId>dataease-plugin-view</artifactId>
-            <version>1.18.5</version>
+            <version>1.18.4</version>
         </dependency>
         <dependency>
             <groupId>io.dataease</groupId>
             <artifactId>dataease-plugin-datasource</artifactId>
-            <version>1.18.5</version>
+            <version>1.18.4</version>
         </dependency>
         <!-- kettle及数据源依赖 -->
         <dependency>

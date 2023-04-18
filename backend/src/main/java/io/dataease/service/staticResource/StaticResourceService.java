@@ -5,6 +5,7 @@ import static io.dataease.commons.constants.StaticResourceConstants.*;
 import cn.hutool.core.codec.Base64Decoder;
 import cn.hutool.core.collection.CollectionUtil;
 import com.google.gson.Gson;
+import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.FileUtils;
 import io.dataease.commons.utils.LogUtil;
 import io.dataease.commons.utils.StaticResourceUtils;
@@ -17,7 +18,10 @@ import org.springframework.util.Assert;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,29 +53,46 @@ public class StaticResourceService {
         
         Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
         try {
+            if (!isImage(file)) {
+                DEException.throwException("Multipart file must be image");
+            }
             String originName = file.getOriginalFilename();
-            String newFileName = fileId+originName.substring(originName.lastIndexOf("."),originName.length());
+            String newFileName = fileId + originName.substring(originName.lastIndexOf("."), originName.length());
             Path uploadPath = Paths.get(staticDir.toString(), newFileName);
             // create dir is absent
             FileUtils.createIfAbsent(Paths.get(staticDir.toString()));
             Files.createFile(uploadPath);
             file.transferTo(uploadPath);
         } catch (IOException e) {
-            LogUtil.error("文件上传失败",e);
+            LogUtil.error("文件上传失败", e);
             DataEaseException.throwException("文件上传失败");
-        } catch (Exception e){
+        } catch (Exception e) {
             DataEaseException.throwException(e);
         }
     }
 
-    public void saveFilesToServe(String staticResource){
+    private boolean isImage(MultipartFile file) {
+        BufferedImage image = null;
+        try (InputStream input = file.getInputStream()) {
+            image = ImageIO.read(input);
+        } catch (IOException e) {
+            LogUtil.error(e.getMessage(), e);
+            return false;
+        }
+        if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) {
+            return false;
+        }
+        return true;
+    }
+
+    public void saveFilesToServe(String staticResource) {
         Gson gson = new Gson();
-        if(StringUtils.isNotEmpty(staticResource)){
-            Map<String,String> resource = gson.fromJson(staticResource,Map.class);
-            for(Map.Entry<String,String> entry:resource.entrySet()){
+        if (StringUtils.isNotEmpty(staticResource)) {
+            Map<String, String> resource = gson.fromJson(staticResource, Map.class);
+            for (Map.Entry<String, String> entry : resource.entrySet()) {
                 String path = entry.getKey();
-                String fileName = path.substring(path.lastIndexOf("/")+1,path.length());
-                saveSingleFileToServe(fileName,entry.getValue());
+                String fileName = path.substring(path.lastIndexOf("/") + 1, path.length());
+                saveSingleFileToServe(fileName, entry.getValue());
             }
         }
     }
@@ -80,17 +101,17 @@ public class StaticResourceService {
     	Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
     	
         Path uploadPath = Paths.get(staticDir.toString(), fileName);
-        try{
+        try {
             if (uploadPath.toFile().exists()) {
                 LogUtil.info("file exists");
-            }else{
-                if(StringUtils.isNotEmpty(content)){
+            } else {
+                if (StringUtils.isNotEmpty(content)) {
                     Files.createFile(uploadPath);
-                    FileCopyUtils.copy(Base64Decoder.decode(content),Files.newOutputStream(uploadPath));
+                    FileCopyUtils.copy(Base64Decoder.decode(content), Files.newOutputStream(uploadPath));
                 }
             }
         } catch (Exception e) {
-            LogUtil.error("template static resource save error"+e.getMessage());
+            LogUtil.error("template static resource save error" + e.getMessage());
         }
     }
     
@@ -106,7 +127,7 @@ public class StaticResourceService {
                 result.put(path,value);
             }
         }
-        return  result;
+        return result;
     }
     
 }
