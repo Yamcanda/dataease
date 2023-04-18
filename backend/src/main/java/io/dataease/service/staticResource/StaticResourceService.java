@@ -32,6 +32,7 @@ import javax.annotation.Resource;
 
 /**
  * Author: wangjiahao
+ * Modify by well
  * Date: 2022/4/24
  * Description:
  */
@@ -43,10 +44,6 @@ public class StaticResourceService {
 	@Resource
 	private StaticResourceProperties staticResourceProperties;
 	
-//    private final Path staticDir = Paths.get(staticResourceProperties.getStaticResource());
-    
-//    private final String FILE_BASE_PATH = staticResourceProperties.getStaticUserHome() + FILE_SEPARATOR+UPLOAD_URL_PREFIX;
-    
     public void upload(String fileId, MultipartFile file) {
         // check if the path is valid (not outside staticDir)
         Assert.notNull(file, "Multipart file must not be null");
@@ -116,15 +113,15 @@ public class StaticResourceService {
     }
     
     public Map<String,String> findResourceAsBase64(StaticResourceRequest resourceRequest) {
-    	String FILE_BASE_PATH = staticResourceProperties.getStaticUserHome() + FILE_SEPARATOR+UPLOAD_URL_PREFIX;
+    	String FILE_BASE_PATH = staticResourceProperties.getStaticUserHome() + FILE_SEPARATOR + UPLOAD_URL_PREFIX;
     	
         Map<String,String> result = new HashMap<>();
         if(CollectionUtil.isNotEmpty(resourceRequest.getResourcePathList())) {
-            for(String path :resourceRequest.getResourcePathList()) {
+            for(String path : resourceRequest.getResourcePathList()) {
             	String imgPath = path.substring(path.lastIndexOf("/") + 1, path.length());
             	String imgFile = FILE_BASE_PATH + FILE_SEPARATOR + imgPath;
                 String value = StaticResourceUtils.getImgFileToBase64(imgFile);
-                result.put(path,value);
+                result.put(path, value);
             }
         }
         return result;

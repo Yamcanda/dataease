@@ -15,15 +15,12 @@
         <relativePath/>
     </parent>
 
-    <properties>
-        <dataease.version>1.18.5</dataease.version>
-    </properties>
-
     <name>dataease</name>
     
     <properties>
         <project.finalName>${project.artifactId}-${project.version}</project.finalName>
         <project.build.bootstrap>bootstrap</project.build.bootstrap>
+        <dataease.version>1.18.5</dataease.version>
     </properties>
     
     <modules>
