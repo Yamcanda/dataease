@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: need reproduce
+        if: false
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'close-issues'

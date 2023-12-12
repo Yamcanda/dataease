@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check recent issues and send msg
+        if: false
         uses: jumpserver/action-issues-alert@master
         with:
           hook: ${{ secrets.WECHAT_GROUP_WEB_HOOK }}

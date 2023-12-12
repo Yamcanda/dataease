@@ -10,12 +10,14 @@ jobs:
     if: (github.event.issue.user.id == github.event.comment.user.id) && !github.event.issue.pull_request && (github.event.issue.state == 'open')
     steps:
       - name: Add require handle label
+        if: false
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'add-labels'
           labels: '状态:待处理'
 
       - name: Remove require reply label
+        if: false
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'remove-labels'
@@ -26,12 +28,14 @@ jobs:
     if: (github.event.issue.user.id != github.event.comment.user.id) && !github.event.issue.pull_request && (github.event.issue.state == 'open')
     steps:
       - name: Add require replay label
+        if: false
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'add-labels'
           labels: '状态:待反馈'
 
       - name: Remove require handle label
+        if: false
         uses: actions-cool/issues-helper@v2
         with:
           actions: 'remove-labels'
