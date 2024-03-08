@@ -1,5 +1,6 @@
 package io.dataease.provider.datasource;
 
+import cn.hutool.db.sql.SqlExecutor;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.pool.DruidPooledConnection;
 import com.google.gson.Gson;
@@ -258,6 +259,23 @@ public class JdbcProvider extends DefaultJdbcProvider {
             DataEaseException.throwException(e);
         }
         return new HashMap<>();
+    }
+
+    /**
+     * 执行 sql 语句
+     * @param datasourceRequest
+     * @return
+     * @throws Exception
+     */
+    public int execute(DatasourceRequest datasourceRequest) {
+        try (Connection connection = getConnectionFromPool(datasourceRequest); Statement stat = connection.createStatement(); ) {
+            return stat.executeUpdate(datasourceRequest.getQuery());
+        } catch (SQLException e) {
+            DataEaseException.throwException(e);
+        } catch (Exception e) {
+            DataEaseException.throwException(e);
+        }
+        return 0;
     }
 
     private List<String[]> getDataResult(ResultSet rs, DatasourceRequest datasourceRequest) throws Exception {

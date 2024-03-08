@@ -54,6 +54,7 @@ import io.dataease.plugins.xpack.auth.dto.request.ColumnPermissionItem;
 import io.dataease.provider.DDLProvider;
 import io.dataease.provider.ProviderFactory;
 import io.dataease.provider.datasource.JdbcProvider;
+import io.dataease.provider.query.SQLUtils;
 import io.dataease.service.chart.util.ChartDataBuild;
 import io.dataease.service.datasource.DatasourceService;
 import io.dataease.service.engine.EngineService;
@@ -1283,6 +1284,12 @@ public class DataSetTableService {
 
         DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
         String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
+
+        // 限制查询语句才进行预览数据
+        if (!SQLUtils.isQuery(sql)){
+            return new ResultHolder();
+        }
+
         datasetSqlLog.setSql(sql);
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
         if (ds == null) {
@@ -1960,6 +1967,9 @@ public class DataSetTableService {
         return datasetTableFields;
     }
 
+    /**
+     * 获取当前表字段和类型，抽象到dataease数据库
+     */
     public void saveTableField(DatasetTable datasetTable) throws Exception {
         Datasource ds = datasourceMapper.selectByPrimaryKey(datasetTable.getDataSourceId());
         if (ObjectUtils.isEmpty(ds) && !datasetTable.getType().equalsIgnoreCase(DatasetType.UNION.name())) {
@@ -1979,6 +1989,11 @@ public class DataSetTableService {
             QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
             DataTableInfoDTO dataTableInfo = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class);
             String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
+
+            // 非查询语句 不需要获取当前表字段和类型
+            if (!SQLUtils.isQuery(sql)){
+                return;
+            }
             sql = removeVariables(sql, ds.getType()).replaceAll(SubstitutedSql.trim(), SubstitutedSqlVirtualData);
             String sqlAsTable = qp.createSQLPreview(sql, null);
             datasourceRequest.setQuery(sqlAsTable);
@@ -3189,4 +3204,211 @@ public class DataSetTableService {
             header.clear();
         }
     }
+
+    /**
+     * 执行sql
+     */
+    public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData) throws Exception {
+        DatasetSqlLog datasetSqlLog = new DatasetSqlLog();
+
+        DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
+        String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
+        datasetSqlLog.setSql(sql);
+        Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
+        if (ds == null) {
+            throw new Exception(Translator.get("i18n_invalid_ds"));
+        }
+        String tmpSql = removeVariablesForExecuteSql(sql, ds.getType());
+
+        if (dataSetTableRequest.getMode() == 1 && (tmpSql.contains(SubstitutedParams) || tmpSql.contains(SubstitutedSql.trim()))) {
+            throw new Exception(Translator.get("I18N_SQL_variable_direct_limit"));
+        }
+        if (tmpSql.contains(SubstitutedParams)) {
+            throw new Exception(Translator.get("I18N_SQL_variable_limit"));
+        }
+        Provider datasourceProvider = ProviderFactory.getProvider(ds.getType());
+        DatasourceRequest datasourceRequest = new DatasourceRequest();
+        datasourceRequest.setDatasource(ds);
+
+        sql = realData ? handleVariableDefaultValueForExecuteSql(sql, dataSetTableRequest.getSqlVariableDetails(), ds.getType(), true) : removeVariablesForExecuteSql(sql, ds.getType()).replaceAll(SubstitutedSql.trim(), SubstitutedSqlVirtualData);
+        sql = sql.trim();
+
+        if (StringUtils.isEmpty(sql)) {
+            DataEaseException.throwException(Translator.get("i18n_sql_not_empty"));
+        }
+        checkVariableForExecuteSql(sql, ds.getType());
+        QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
+
+        System.out.println("sql : " + sql);
+
+        // 非查询语句
+        if (!SQLUtils.isQuery(sql)){
+            datasourceRequest.setQuery(sql);
+            int execute;
+            try {
+                datasetSqlLog.setStartTime(System.currentTimeMillis());
+                execute  = datasourceProvider.execute(datasourceRequest);
+                datasetSqlLog.setEndTime(System.currentTimeMillis());
+                datasetSqlLog.setSpend(datasetSqlLog.getEndTime() - datasetSqlLog.getStartTime());
+                datasetSqlLog.setStatus("Completed");
+            } catch (Exception e) {
+                datasetSqlLog.setStatus("Error");
+                return ResultHolder.error(e.getMessage(), datasetSqlLog);
+            } finally {
+                if (StringUtils.isNotEmpty(dataSetTableRequest.getId())) {
+                    datasetSqlLog.setDatasetId(dataSetTableRequest.getId());
+                    datasetSqlLog.setId(UUID.randomUUID().toString());
+                    datasetSqlLogMapper.insert(datasetSqlLog);
+                }
+            }
+            return ResultHolder.success(execute);
+        }
+
+        // 限制查询 1000 条数据 TODO 是否不需要限制
+        String sqlAsTable = qp.createSQLPreview(sql, null);
+        datasourceRequest.setQuery(sqlAsTable);
+
+        Map<String, List> result;
+        try {
+            datasetSqlLog.setStartTime(System.currentTimeMillis());
+            result = datasourceProvider.fetchResultAndField(datasourceRequest);
+            datasetSqlLog.setEndTime(System.currentTimeMillis());
+            datasetSqlLog.setSpend(datasetSqlLog.getEndTime() - datasetSqlLog.getStartTime());
+            datasetSqlLog.setStatus("Completed");
+        } catch (Exception e) {
+            datasetSqlLog.setStatus("Error");
+            return ResultHolder.error(e.getMessage(), datasetSqlLog);
+        } finally {
+            if (StringUtils.isNotEmpty(dataSetTableRequest.getId())) {
+                datasetSqlLog.setDatasetId(dataSetTableRequest.getId());
+                datasetSqlLog.setId(UUID.randomUUID().toString());
+                datasetSqlLogMapper.insert(datasetSqlLog);
+            }
+        }
+
+        List<String[]> data = result.get("dataList");
+        List<TableField> fields = result.get("fieldList");
+        String[] fieldArray = fields.stream().map(TableField::getFieldName).toArray(String[]::new);
+        checkIsRepeat(fieldArray);
+        List<Map<String, Object>> jsonArray = new ArrayList<>();
+        if (CollectionUtils.isNotEmpty(data)) {
+            jsonArray = data.stream().map(ele -> {
+                Map<String, Object> map = new HashMap<>();
+                for (int i = 0; i < ele.length; i++) {
+                    map.put(fieldArray[i], ele[i]);
+                }
+                return map;
+            }).collect(Collectors.toList());
+        }
+        return ResultHolder.success(jsonArray);
+    }
+
+
+    public void checkVariableForExecuteSql(final String sql, String dsType) throws Exception {
+        String tmpSql = removeVariablesForExecuteSql(sql, dsType);
+        if (tmpSql.contains(SubstitutedParams)) {
+            throw new Exception(Translator.get("I18N_SQL_variable_limit"));
+        }
+    }
+
+    public String handleVariableDefaultValueForExecuteSql(String sql, String sqlVariableDetails, String dsType, boolean isEdit) {
+        if (StringUtils.isEmpty(sql)) {
+            DataEaseException.throwException(Translator.get("i18n_sql_not_empty"));
+        }
+        if (sqlVariableDetails != null) {
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(sql);
+
+            while (matcher.find()) {
+                SqlVariableDetails defaultsSqlVariableDetail = null;
+                List<SqlVariableDetails> defaultsSqlVariableDetails = new Gson().fromJson(sqlVariableDetails, new TypeToken<List<SqlVariableDetails>>() {
+                }.getType());
+                for (SqlVariableDetails sqlVariableDetail : defaultsSqlVariableDetails) {
+                    if (matcher.group().substring(2, matcher.group().length() - 1).equalsIgnoreCase(sqlVariableDetail.getVariableName())) {
+                        defaultsSqlVariableDetail = sqlVariableDetail;
+                        break;
+                    }
+                }
+
+                if (!isEdit && defaultsSqlVariableDetail != null && defaultsSqlVariableDetail.getDefaultValueScope() != null &&
+                        defaultsSqlVariableDetail.getDefaultValueScope().equals(SqlVariableDetails.DefaultValueScope.ALLSCOPE) ) {
+                    sql = sql.replace(matcher.group(), defaultsSqlVariableDetail.getDefaultValue());
+                }
+
+                // 参数替换
+                if (isEdit && defaultsSqlVariableDetail != null) {
+                    // 参数值
+                    String defaultValue = defaultsSqlVariableDetail.getDefaultValue();
+                    // 字段类型 TEXT LONG DOUBLE DATETIME
+                    String type = defaultsSqlVariableDetail.getType().get(0);
+
+                    if (ObjectUtils.isNotEmpty(defaultValue)){
+                        sql = sql.replace(matcher.group(), defaultValue);
+                    } else if (ObjectUtils.isNotEmpty(type)){
+                        // 传入参数为空时，根据 BI 前端设置的字段类型，替换 sql 中的参数
+                        // 文本类型：传入参数为 空字符串， 替换为 '' ；传入 null 替换为 null
+                        // 其他类型：传入参数为 空字符串， 替换为 null
+                        if (Objects.equals(type, "TEXT") && defaultValue != null){
+                            sql = sql.replace(matcher.group(), "");
+                        } else if (Objects.equals(type, "LONG") || Objects.equals(type, "DOUBLE")){
+                            sql = sql.replace(matcher.group(), "null");
+                        } else {
+                            sql = sql.replace("'" + matcher.group() + "'", "null");
+                        }
+                    }
+                }
+            }
+        }
+
+        try {
+            sql = removeVariablesForExecuteSql(sql, dsType);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return sql;
+    }
+
+    /**
+     * 移除参数，执行sql
+     * @param sql
+     * @param dsType
+     * @return
+     * @throws Exception
+     */
+    public String removeVariablesForExecuteSql(final String sql, String dsType) throws Exception {
+        String tmpSql = sql;
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(tmpSql);
+        boolean hasVariables = false;
+        while (matcher.find()) {
+            hasVariables = true;
+            tmpSql = tmpSql.replace(matcher.group(), SubstitutedParams);
+        }
+        if (!hasVariables && !tmpSql.contains(SubstitutedParams)) {
+            return tmpSql;
+        }
+
+        Statement statement = CCJSqlParserUtil.parse(tmpSql);
+        // select 类型才需要解析查询的字段
+        if (statement instanceof Select) {
+            Select select = (Select) statement;
+
+            if (select.getSelectBody() instanceof PlainSelect) {
+                return handlePlainSelect((PlainSelect) select.getSelectBody(), select, dsType);
+            } else {
+                StringBuilder result = new StringBuilder();
+                SetOperationList setOperationList = (SetOperationList) select.getSelectBody();
+                for (int i = 0; i < setOperationList.getSelects().size(); i++) {
+                    result.append(handlePlainSelect((PlainSelect) setOperationList.getSelects().get(i), null, dsType));
+                    if (i < setOperationList.getSelects().size() - 1) {
+                        result.append(" ").append(setOperationList.getOperations().get(i).toString()).append(" ");
+                    }
+                }
+                return result.toString();
+            }
+        }
+
+        return sql;
+    }
+
 }

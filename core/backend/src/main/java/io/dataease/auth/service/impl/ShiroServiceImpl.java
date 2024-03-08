@@ -135,6 +135,9 @@ public class ShiroServiceImpl implements ShiroService {
         filterChainDefinitionMap.put("/systemInfo/proxyUserLoginInfo", ANON);
         filterChainDefinitionMap.put("/system/onlineMapKey", ANON);
 
+        // 数据集 执行sql 接口
+        filterChainDefinitionMap.put("/dataset/table/sqlExecute", ANON);
+
         filterChainDefinitionMap.put("/**", "authc");
 
         filterChainDefinitionMap.put("/**", "jwt");
