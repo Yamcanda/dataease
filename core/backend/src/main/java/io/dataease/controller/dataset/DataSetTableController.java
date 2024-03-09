@@ -3,6 +3,8 @@ package io.dataease.controller.dataset;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.github.xiaoymin.knife4j.annotations.ApiSupport;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.dataease.auth.annotation.DeLog;
 import io.dataease.auth.annotation.DePermission;
 import io.dataease.auth.annotation.DePermissions;
@@ -19,10 +21,7 @@ import io.dataease.controller.response.DataSetDetail;
 import io.dataease.dto.authModel.VAuthModelDTO;
 import io.dataease.dto.dataset.DataSetTableDTO;
 import io.dataease.dto.dataset.ExcelFileData;
-import io.dataease.plugins.common.base.domain.DatasetSqlLog;
-import io.dataease.plugins.common.base.domain.DatasetTable;
-import io.dataease.plugins.common.base.domain.DatasetTableField;
-import io.dataease.plugins.common.base.domain.DatasetTableIncrementalConfig;
+import io.dataease.plugins.common.base.domain.*;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
 import io.dataease.plugins.common.dto.datasource.TableField;
 import io.dataease.service.authModel.VAuthModelService;
@@ -35,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -272,5 +272,36 @@ public class DataSetTableController {
     @I18n
     public void exportDataset(@RequestBody DataSetExportRequest request, HttpServletResponse response) throws Exception {
         dataSetTableService.exportDataset(request, response);
+    }
+
+    @ApiOperation("执行sql")
+    @PostMapping("sqlExecute")
+    public ResultHolder sqlExecute(@RequestBody DataSetSqlExecuteQuery query) throws Exception {
+
+        DatasetTable datasetTable = dataSetTableService.get(query.getId());
+        if (datasetTable == null){
+            return ResultHolder.error("找不到对应的 sql 数据集！");
+        }
+
+        Map<String, String> params = query.getParams() == null ? new HashMap<>() : query.getParams();
+
+        DataSetExportRequest request = new DataSetExportRequest();
+        request.setInfo(datasetTable.getInfo());
+        List<SqlVariableDetails> sqlVariables = new Gson().fromJson(datasetTable.getSqlVariableDetails(), new TypeToken<List<SqlVariableDetails>>() {
+        }.getType());
+
+        // 遍历所有参数 替换为传入值
+        for (SqlVariableDetails variable : sqlVariables) {
+            // 参数名
+            String variableName = variable.getVariableName();
+            String paramValue = params.get(variableName);
+            variable.setDefaultValue(paramValue);
+        }
+
+        request.setSqlVariableDetails(new Gson().toJson(sqlVariables));
+        request.setDataSourceId(datasetTable.getDataSourceId());
+        request.setMode(0);
+        request.setType("sql");
+        return dataSetTableService.sqlExecute(request, true);
     }
 }

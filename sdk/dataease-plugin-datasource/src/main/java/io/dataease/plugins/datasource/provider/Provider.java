@@ -70,4 +70,14 @@ public abstract class Provider {
     public void checkConfiguration(Datasource datasource) throws Exception{}
 
     public String dsVersion(Datasource datasource) throws Exception{return "";}
+
+    /**
+     * 执行 sql 语句
+     * @param datasourceRequest
+     * @return
+     * @throws Exception
+     */
+    public int execute(DatasourceRequest datasourceRequest) throws Exception{
+        return 0;
+    }
 }
