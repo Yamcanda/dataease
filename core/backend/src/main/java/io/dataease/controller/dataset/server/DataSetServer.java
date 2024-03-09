@@ -1,4 +1,4 @@
-package io.dataease.controller.panel.server;
+package io.dataease.controller.dataset.server;
 
 import java.util.HashMap;
 import java.util.List;
@@ -12,7 +12,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
 import io.dataease.controller.ResultHolder;
-import io.dataease.controller.panel.api.DataSetApi;
+import io.dataease.controller.dataset.api.DataSetApi;
 import io.dataease.controller.request.dataset.DataSetExportRequest;
 import io.dataease.plugins.common.base.domain.DatasetTable;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
