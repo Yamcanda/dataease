@@ -3213,7 +3213,7 @@ public class DataSetTableService {
 
         DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
         String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
-        datasetSqlLog.setSql(sql);
+
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
         if (ds == null) {
             throw new Exception(Translator.get("i18n_invalid_ds"));
@@ -3239,7 +3239,8 @@ public class DataSetTableService {
         checkVariableForExecuteSql(sql, ds.getType());
         QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
 
-        System.out.println("sql : " + sql);
+        // 记录执行的 sql 语句
+        datasetSqlLog.setSql("-- api 执行 sql  : \n" + sql);
 
         // 非查询语句
         if (!SQLUtils.isQuery(sql)){

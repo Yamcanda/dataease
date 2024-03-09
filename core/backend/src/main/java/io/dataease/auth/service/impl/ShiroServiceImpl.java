@@ -136,7 +136,7 @@ public class ShiroServiceImpl implements ShiroService {
         filterChainDefinitionMap.put("/system/onlineMapKey", ANON);
 
         // 数据集 执行sql 接口
-        filterChainDefinitionMap.put("/dataset/table/sqlExecute", ANON);
+        filterChainDefinitionMap.put("/api/dataset/**", ANON);
 
         filterChainDefinitionMap.put("/**", "authc");
 

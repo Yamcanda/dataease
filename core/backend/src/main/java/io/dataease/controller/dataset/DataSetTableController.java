@@ -274,34 +274,4 @@ public class DataSetTableController {
         dataSetTableService.exportDataset(request, response);
     }
 
-    @ApiOperation("执行sql")
-    @PostMapping("sqlExecute")
-    public ResultHolder sqlExecute(@RequestBody DataSetSqlExecuteQuery query) throws Exception {
-
-        DatasetTable datasetTable = dataSetTableService.get(query.getId());
-        if (datasetTable == null){
-            return ResultHolder.error("找不到对应的 sql 数据集！");
-        }
-
-        Map<String, String> params = query.getParams() == null ? new HashMap<>() : query.getParams();
-
-        DataSetExportRequest request = new DataSetExportRequest();
-        request.setInfo(datasetTable.getInfo());
-        List<SqlVariableDetails> sqlVariables = new Gson().fromJson(datasetTable.getSqlVariableDetails(), new TypeToken<List<SqlVariableDetails>>() {
-        }.getType());
-
-        // 遍历所有参数 替换为传入值
-        for (SqlVariableDetails variable : sqlVariables) {
-            // 参数名
-            String variableName = variable.getVariableName();
-            String paramValue = params.get(variableName);
-            variable.setDefaultValue(paramValue);
-        }
-
-        request.setSqlVariableDetails(new Gson().toJson(sqlVariables));
-        request.setDataSourceId(datasetTable.getDataSourceId());
-        request.setMode(0);
-        request.setType("sql");
-        return dataSetTableService.sqlExecute(request, true);
-    }
 }
