@@ -13,13 +13,13 @@ import io.dataease.controller.ResultHolder;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 
-@Api(tags = "仪表板：数据集管理")
+@Api(tags = "数据集：数据查询及更新接口")
 @ApiSupport(order = 200)
 @RequestMapping("/api/dataset")
 public interface DataSetApi {
 
-	@ApiOperation("执行sql")
+	@ApiOperation("数据获取及更新")
     @PostMapping("/{id}")
-    public ResultHolder sqlExecute(@PathVariable("id") String id, @RequestBody Map<String, Object> params) throws Exception;
+    ResultHolder fetchOrUpdate(@PathVariable("id") String id, @RequestBody Map<String, Object> params) throws Exception;
 	
 }

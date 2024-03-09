@@ -32,6 +32,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
         LogUtil.info("staticResource: " + staticResource);
         LogUtil.info("staticWebResource: " + staticWebResource);
 
+        // for dev knife4j doc
+        registry.addResourceHandler("doc.html").addResourceLocations("classpath:/META-INF/resources/");
+        registry.addResourceHandler("swagger-ui.html").addResourceLocations("classpath:/META-INF/resources/");
+        registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
+
         registry.addResourceHandler("/geo/**").addResourceLocations(geoPath);
         registry.addResourceHandler("/static-resource/**").addResourceLocations("file:///" + staticResource);
 
