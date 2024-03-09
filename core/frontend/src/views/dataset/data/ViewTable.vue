@@ -62,6 +62,14 @@
         <deBtn
           v-if="hasDataPermission('manage', param.privileges)"
           :disabled="!previewDataSuccess"
+          secondary
+          @click="exportDatasetApi"
+        >
+          {{ $t('dataset.export_dataset_api') }}
+        </deBtn>
+        <deBtn
+          v-if="hasDataPermission('manage', param.privileges)"
+          :disabled="!previewDataSuccess"
           type="primary"
           icon="el-icon-download"
           @click="exportDataset"
@@ -188,6 +196,32 @@
       </el-tab-pane>
     </el-tabs>
 
+    <!-- 数据接口 -->
+    <el-dialog
+      v-if="showDatasetApi"
+      v-dialogDrag
+      :visible.sync="showDatasetApi"
+      width="800px"
+      class="de-dialog-form form-tree-cont"
+      :title="$t('dataset.export_dataset_api')"
+      append-to-body
+    >
+      <span>地址: {{ origin }}/api/dataset/{{ param.id }}</span>
+      <div
+        slot="footer"
+        class="dialog-footer"
+      >
+        <deBtn
+          secondary
+          @click="closeDatasetApi"
+        >{{ $t('dataset.cancel') }}
+        </deBtn>
+        <deBtn
+          type="primary"
+          @click="handleCopy">复制</deBtn>
+      </div>
+    </el-dialog>
+
     <!--导出数据集弹框-->
     <el-dialog
       v-if="showExport"
@@ -303,6 +337,7 @@ export default {
       },
       tabStatus: false,
       isPluginLoaded: false,
+      showDatasetApi: false,
       showExport: false,
       exportForm: {
         name: ''
@@ -358,6 +393,7 @@ export default {
   },
   mounted() {
     this.initTable(this.param.id)
+    this.origin = window.location.origin
   },
   methods: {
     fetchFiledList() {
@@ -469,6 +505,23 @@ export default {
       if (this.tabActive === 'dataPreview') {
         this.initTable(this.param.id)
       }
+    },
+
+    handleCopy() {
+      let elInput = document.createElement('input')
+      elInput.value = this.origin + '/api/dataset/'+ this.param.id
+      document.body.appendChild(elInput)
+      // 选择对象
+      elInput.select()
+      document.execCommand("Copy")
+      elInput.remove()
+      this.$success("复制成功", 3000)
+    },
+    exportDatasetApi() {
+      this.showDatasetApi = true
+    },
+    closeDatasetApi() {
+      this.showDatasetApi = false
     },
 
     exportDataset() {

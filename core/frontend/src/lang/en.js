@@ -1847,6 +1847,7 @@ export default {
     edit_search: 'Search by name',
     na: 'None',
     date_format: 'Time format, default: year-month-day hour:minute:second',
+    export_dataset_api: 'Dataset API',
     export_dataset: 'Export',
     filename: 'Filename',
     export_filter: 'Filter',

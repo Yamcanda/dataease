@@ -1839,6 +1839,7 @@ export default {
     edit_search: '通过名称搜索',
     na: '暂无',
     date_format: '时间格式，默认: 年-月-日 时:分:秒',
+    export_dataset_api: '数据接口',
     export_dataset: '数据集导出',
     filename: '文件名称',
     export_filter: '筛选条件',
