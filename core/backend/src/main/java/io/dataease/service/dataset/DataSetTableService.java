@@ -3211,21 +3211,28 @@ public class DataSetTableService {
     public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData) throws Exception {
         DatasetSqlLog datasetSqlLog = new DatasetSqlLog();
 
-        DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
-        String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
-
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
         if (ds == null) {
             throw new Exception(Translator.get("i18n_invalid_ds"));
         }
+
+        DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
+
+        String sql = "SELECT * FROM " + dataTableInfo.getTable();
+        if(StringUtils.isNotBlank(dataTableInfo.getSql())) {
+            sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
+        }
+
         String tmpSql = removeVariablesForExecuteSql(sql, ds.getType());
 
         if (dataSetTableRequest.getMode() == 1 && (tmpSql.contains(SubstitutedParams) || tmpSql.contains(SubstitutedSql.trim()))) {
             throw new Exception(Translator.get("I18N_SQL_variable_direct_limit"));
         }
+
         if (tmpSql.contains(SubstitutedParams)) {
             throw new Exception(Translator.get("I18N_SQL_variable_limit"));
         }
+
         Provider datasourceProvider = ProviderFactory.getProvider(ds.getType());
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDatasource(ds);
@@ -3236,6 +3243,7 @@ public class DataSetTableService {
         if (StringUtils.isEmpty(sql)) {
             DataEaseException.throwException(Translator.get("i18n_sql_not_empty"));
         }
+
         checkVariableForExecuteSql(sql, ds.getType());
         QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
 
@@ -3243,7 +3251,7 @@ public class DataSetTableService {
         datasetSqlLog.setSql("-- api 执行 sql  : \n" + sql);
 
         // 非查询语句
-        if (!SQLUtils.isQuery(sql)){
+        if (!SQLUtils.isQuery(sql)) {
             datasourceRequest.setQuery(sql);
             int execute;
             try {
@@ -3262,6 +3270,7 @@ public class DataSetTableService {
                     datasetSqlLogMapper.insert(datasetSqlLog);
                 }
             }
+
             return ResultHolder.success(execute);
         }
 
@@ -3304,7 +3313,6 @@ public class DataSetTableService {
         return ResultHolder.success(jsonArray);
     }
 
-
     public void checkVariableForExecuteSql(final String sql, String dsType) throws Exception {
         String tmpSql = removeVariablesForExecuteSql(sql, dsType);
         if (tmpSql.contains(SubstitutedParams)) {
@@ -3316,14 +3324,15 @@ public class DataSetTableService {
         if (StringUtils.isEmpty(sql)) {
             DataEaseException.throwException(Translator.get("i18n_sql_not_empty"));
         }
+
         if (sqlVariableDetails != null) {
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher(sql);
 
             while (matcher.find()) {
                 SqlVariableDetails defaultsSqlVariableDetail = null;
-                List<SqlVariableDetails> defaultsSqlVariableDetails = new Gson().fromJson(sqlVariableDetails, new TypeToken<List<SqlVariableDetails>>() {
-                }.getType());
+                List<SqlVariableDetails> defaultsSqlVariableDetails = new Gson().fromJson(sqlVariableDetails, new TypeToken<List<SqlVariableDetails>>() {}.getType());
+
                 for (SqlVariableDetails sqlVariableDetail : defaultsSqlVariableDetails) {
                     if (matcher.group().substring(2, matcher.group().length() - 1).equalsIgnoreCase(sqlVariableDetail.getVariableName())) {
                         defaultsSqlVariableDetail = sqlVariableDetail;
@@ -3343,15 +3352,15 @@ public class DataSetTableService {
                     // 字段类型 TEXT LONG DOUBLE DATETIME
                     String type = defaultsSqlVariableDetail.getType().get(0);
 
-                    if (ObjectUtils.isNotEmpty(defaultValue)){
+                    if (ObjectUtils.isNotEmpty(defaultValue)) {
                         sql = sql.replace(matcher.group(), defaultValue);
-                    } else if (ObjectUtils.isNotEmpty(type)){
+                    } else if (ObjectUtils.isNotEmpty(type)) {
                         // 传入参数为空时，根据 BI 前端设置的字段类型，替换 sql 中的参数
                         // 文本类型：传入参数为 空字符串， 替换为 '' ；传入 null 替换为 null
                         // 其他类型：传入参数为 空字符串， 替换为 null
-                        if (Objects.equals(type, "TEXT") && defaultValue != null){
+                        if (Objects.equals(type, "TEXT") && defaultValue != null) {
                             sql = sql.replace(matcher.group(), "");
-                        } else if (Objects.equals(type, "LONG") || Objects.equals(type, "DOUBLE")){
+                        } else if (Objects.equals(type, "LONG") || Objects.equals(type, "DOUBLE")) {
                             sql = sql.replace(matcher.group(), "null");
                         } else {
                             sql = sql.replace("'" + matcher.group() + "'", "null");
@@ -3364,7 +3373,8 @@ public class DataSetTableService {
         try {
             sql = removeVariablesForExecuteSql(sql, dsType);
         } catch (Exception e) {
-            e.printStackTrace();
+            DataEaseException.throwException(Translator.get("i18n_check_sql_error"));
+            DataEaseException.throwException(e);
         }
         return sql;
     }
@@ -3385,6 +3395,7 @@ public class DataSetTableService {
             hasVariables = true;
             tmpSql = tmpSql.replace(matcher.group(), SubstitutedParams);
         }
+
         if (!hasVariables && !tmpSql.contains(SubstitutedParams)) {
             return tmpSql;
         }

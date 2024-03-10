@@ -73,9 +73,9 @@ public class DataSetServer implements DataSetApi {
             });
         }
 
-        DataSetExportRequest request = new DataSetExportRequest();
-        request.setId(id);
-        request.setInfo(datasetTable.getInfo());
+        DataSetExportRequest dataSetExportRequest = new DataSetExportRequest();
+        dataSetExportRequest.setId(id);
+        dataSetExportRequest.setInfo(datasetTable.getInfo());
         List<SqlVariableDetails> sqlVariables = new Gson().fromJson(datasetTable.getSqlVariableDetails(), new TypeToken<List<SqlVariableDetails>>() {}.getType());
 
         // 遍历所有参数 替换为传入值
@@ -87,14 +87,14 @@ public class DataSetServer implements DataSetApi {
                 variable.setDefaultValue(paramValue);
             }
 
-            request.setSqlVariableDetails(new Gson().toJson(sqlVariables));
+            dataSetExportRequest.setSqlVariableDetails(new Gson().toJson(sqlVariables));
         }
 
-        request.setDataSourceId(datasetTable.getDataSourceId());
-        request.setMode(0);
-        request.setType("sql");
+        dataSetExportRequest.setDataSourceId(datasetTable.getDataSourceId());
+        dataSetExportRequest.setMode(0);
+        dataSetExportRequest.setType("sql");
 
-        return dataSetTableService.sqlExecute(request, true);
+        return dataSetTableService.sqlExecute(dataSetExportRequest, true);
 	}
 
 }
