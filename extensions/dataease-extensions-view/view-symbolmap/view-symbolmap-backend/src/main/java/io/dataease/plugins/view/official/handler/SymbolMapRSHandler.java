@@ -11,10 +11,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
@@ -37,10 +35,14 @@ public class SymbolMapRSHandler implements PluginViewRSHandler<Map> {
     public Map format(PluginViewParam pluginViewParam, List<String[]> data, boolean isDrill) {
         List<PluginViewField> xAxis = new ArrayList<>();
         List<PluginViewField> yAxis = new ArrayList<>();
+        List<PluginViewField> xAxisExt = new ArrayList<>();
 
         pluginViewParam.getPluginViewFields().forEach(pluginViewField -> {
             if (StringUtils.equals(pluginViewField.getTypeField(), "xAxis")) {
                 xAxis.add(pluginViewField);
+            }
+            if (StringUtils.equals(pluginViewField.getTypeField(), "xAxisExt")) {
+                xAxisExt.add(pluginViewField);
             }
             if (StringUtils.equals(pluginViewField.getTypeField(), "yAxis")
                     || trans2Ykeys.contains(pluginViewField.getTypeField())) {
@@ -67,40 +69,31 @@ public class SymbolMapRSHandler implements PluginViewRSHandler<Map> {
             }
 
             if (CollectionUtils.isEmpty(yAxis)) {
-                for (int i = 0; i < xAxis.size() + yAxis.size(); i++) {
-                    SymbolMapResultDTO axisChartDataDTO = new SymbolMapResultDTO();
-                    axisChartDataDTO.setField(a.toString());
-                    axisChartDataDTO.setName(a.toString());
+                SymbolMapResultDTO axisChartDataDTO = new SymbolMapResultDTO();
+                axisChartDataDTO.setField(a.toString());
+                axisChartDataDTO.setName(a.toString());
 
-                    List<ChartDimensionDTO> dimensionList = new ArrayList<>();
-                    List<ChartQuotaDTO> quotaList = new ArrayList<>();
+                List<ChartDimensionDTO> dimensionList = new ArrayList<>();
 
-                    for (int j = 0; j < xAxis.size(); j++) {
-                        ChartDimensionDTO chartDimensionDTO = new ChartDimensionDTO();
-                        chartDimensionDTO.setId(xAxis.get(j).getId());
-                        chartDimensionDTO.setValue(row[j]);
-                        dimensionList.add(chartDimensionDTO);
-                    }
-                    axisChartDataDTO.setDimensionList(dimensionList);
-
-                    int j = i - xAxis.size();
-                    if (j > -1) {
-                        ChartQuotaDTO chartQuotaDTO = new ChartQuotaDTO();
-                        chartQuotaDTO.setId(yAxis.get(j).getId());
-                        quotaList.add(chartQuotaDTO);
-                        axisChartDataDTO.setQuotaList(quotaList);
-                        try {
-                            axisChartDataDTO.setBusiValue(row[i]);
-                            axisChartDataDTO.setValue(StringUtils.isEmpty(row[i]) ? null : new BigDecimal(row[i]));
-                        } catch (Exception e) {
-                            axisChartDataDTO.setValue(new BigDecimal(0));
-                        }
-                        axisChartDataDTO.setCategory(yAxis.get(j).getName());
-                    }
-                    axisChartDataDTO.setLongitude(dimensionList.get(0).getValue());
-                    axisChartDataDTO.setLatitude(dimensionList.get(1).getValue());
-                    datalist.add(axisChartDataDTO);
+                for (int j = 0; j < xAxis.size(); j++) {
+                    ChartDimensionDTO chartDimensionDTO = new ChartDimensionDTO();
+                    chartDimensionDTO.setId(xAxis.get(j).getId());
+                    chartDimensionDTO.setValue(row[j]);
+                    dimensionList.add(chartDimensionDTO);
                 }
+                for (int j = 0; j < xAxisExt.size(); j++) {
+                    ChartDimensionDTO chartDimensionDTO = new ChartDimensionDTO();
+                    chartDimensionDTO.setId(xAxisExt.get(j).getId());
+                    chartDimensionDTO.setValue(row[j + xAxis.size()]);
+                    dimensionList.add(chartDimensionDTO);
+                }
+                axisChartDataDTO.setDimensionList(dimensionList);
+                axisChartDataDTO.setLongitude(dimensionList.get(0).getValue());
+                axisChartDataDTO.setLatitude(dimensionList.get(1).getValue());
+                if (!xAxisExt.isEmpty()) {
+                    axisChartDataDTO.setColor(dimensionList.get(2).getValue());
+                }
+                datalist.add(axisChartDataDTO);
             } else {
                 SymbolMapResultDTO axisChartDataDTO = new SymbolMapResultDTO();
                 axisChartDataDTO.setField(a.toString());
@@ -114,17 +107,26 @@ public class SymbolMapRSHandler implements PluginViewRSHandler<Map> {
                     chartDimensionDTO.setValue(row[j]);
                     dimensionList.add(chartDimensionDTO);
                 }
+                for (int j = 0; j < xAxisExt.size(); j++) {
+                    ChartDimensionDTO chartDimensionDTO = new ChartDimensionDTO();
+                    chartDimensionDTO.setId(xAxisExt.get(j).getId());
+                    chartDimensionDTO.setValue(row[j + xAxis.size()]);
+                    dimensionList.add(chartDimensionDTO);
+                }
+                if (!xAxisExt.isEmpty()) {
+                    axisChartDataDTO.setColor(dimensionList.get(2).getValue());
+                }
                 axisChartDataDTO.setDimensionList(dimensionList);
                 axisChartDataDTO.setQuotaList(new ArrayList<>());
                 axisChartDataDTO.setProperties(new HashMap<>());
-                int step = xAxis.size();
+                int step = xAxis.size() + xAxisExt.size();
                 Boolean valueFilled = false;
                 for (int i = 0; i < yAxis.size(); i++) {
                     PluginViewField curY = yAxis.get(i);
                     ChartQuotaDTO chartQuotaDTO = new ChartQuotaDTO();
                     chartQuotaDTO.setId(curY.getId());
                     axisChartDataDTO.getQuotaList().add(chartQuotaDTO);
-                    axisChartDataDTO.getProperties().put(curY.getName(), row[i + step]);
+                    axisChartDataDTO.getProperties().put(curY.getName(), formatLabel(curY, row[i + step]));
                     axisChartDataDTO.setLongitude(dimensionList.get(0).getValue());
                     axisChartDataDTO.setLatitude(dimensionList.get(1).getValue());
                     if (StringUtils.equals(curY.getTypeField(), "yAxis") && !valueFilled) {
@@ -138,5 +140,14 @@ public class SymbolMapRSHandler implements PluginViewRSHandler<Map> {
         }
         map.put("data", datalist);
         return map;
+    }
+
+    private String formatLabel(PluginViewField field, String val) {
+        if (StringUtils.isBlank(val)) return val;
+        String typeField = field.getTypeField();
+        if (StringUtils.isNotBlank(typeField) && trans2Ykeys.contains(typeField)) {
+            return Arrays.stream(val.split(",")).map(StringUtils::trim).distinct().collect(Collectors.joining(","));
+        }
+        return val;
     }
 }

@@ -25,7 +25,7 @@
             class="form-item"
           >
             <el-input
-              v-model="titleForm.title"
+              v-model.trim="titleForm.title"
               size="mini"
               :placeholder="$t('chart.title')"
               clearable
@@ -250,7 +250,7 @@ export default {
     },
     init() {
       const arr = []
-      for (let i = 10; i <= 60; i = i + 2) {
+      for (let i = 6; i <= 60; i = i + 2) {
         arr.push({
           name: i + '',
           value: i + ''

@@ -1,8 +1,6 @@
 package io.dataease.service.system;
 
-import cn.hutool.core.util.ArrayUtil;
 import io.dataease.commons.constants.ParamConstants;
-import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.CommonBeanFactory;
 import io.dataease.commons.utils.EncryptUtils;
 import io.dataease.commons.utils.LogUtil;
@@ -11,7 +9,9 @@ import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.SystemParameter;
 import io.dataease.plugins.common.base.domain.SystemParameterExample;
 import io.dataease.plugins.common.base.mapper.SystemParameterMapper;
+import io.dataease.plugins.common.exception.DataEaseException;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -78,13 +78,13 @@ public class EmailService {
             driver.send(mimeMessage);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException(Translator.get("connection_failed"));
+            DataEaseException.throwException(Translator.get("connection_failed"));
         }
     }
 
 
     public void sendPdfWithFiles(String to, String title, String content, byte[] bytes, List<File> files) {
-        if (ArrayUtil.isEmpty(bytes)) {
+        if (ArrayUtils.isEmpty(bytes)) {
             send(to, title, content);
             return;
         }
@@ -109,7 +109,7 @@ public class EmailService {
             driver.send(mimeMessage);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException(e);
+            DataEaseException.throwException(e);
         }
     }
 
@@ -117,7 +117,7 @@ public class EmailService {
         if (StringUtils.isBlank(to))
             return;
 
-        if (ArrayUtil.isEmpty(bytes)) {
+        if (ArrayUtils.isEmpty(bytes)) {
             send(to, title, content);
             return;
         }
@@ -139,7 +139,7 @@ public class EmailService {
             driver.send(mimeMessage);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException(e);
+            DataEaseException.throwException(e);
         }
     }
 
@@ -314,7 +314,7 @@ public class EmailService {
                 LogUtil.error(e.getMessage(), e);
                 String key = "connection_failed";
                 if (isAdmin) key = "connection_failed_admin";
-                DEException.throwException(Translator.get(key));
+                DataEaseException.throwException(Translator.get(key));
             }
         }
     }
@@ -326,7 +326,7 @@ public class EmailService {
             javaMailSender.testConnection();
         } catch (MessagingException e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException(Translator.get("connection_failed"));
+            DataEaseException.throwException(Translator.get("connection_failed"));
         }
         testSendEmail(email, javaMailSender, true);
     }
@@ -353,7 +353,7 @@ public class EmailService {
             javaMailSender.testConnection();
         } catch (MessagingException e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException(Translator.get("connection_failed"));
+            DataEaseException.throwException(Translator.get("connection_failed"));
         }
         testSendEmail(recipients, javaMailSender, false);
     }

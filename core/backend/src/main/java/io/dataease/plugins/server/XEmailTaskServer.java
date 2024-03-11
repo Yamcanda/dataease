@@ -1,19 +1,17 @@
 package io.dataease.plugins.server;
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.ArrayUtil;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import io.dataease.auth.annotation.DeRateLimiter;
 import io.dataease.auth.annotation.SqlInjectValidator;
 import io.dataease.auth.api.dto.CurrentUserDto;
-import io.dataease.commons.exception.DEException;
 import io.dataease.commons.model.excel.ExcelSheetModel;
 import io.dataease.commons.pool.PriorityThreadPoolExecutor;
 import io.dataease.commons.utils.*;
 import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.entity.GlobalTaskEntity;
 import io.dataease.plugins.common.entity.GlobalTaskInstance;
+import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.plugins.common.util.SpringContextUtil;
 import io.dataease.plugins.xpack.email.dto.request.*;
 import io.dataease.plugins.xpack.email.dto.response.XpackTaskEntity;
@@ -22,8 +20,11 @@ import io.dataease.plugins.xpack.email.dto.response.XpackTaskInstanceDTO;
 import io.dataease.plugins.xpack.email.service.EmailXpackService;
 import io.dataease.service.ScheduleService;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
@@ -35,10 +36,10 @@ import org.springframework.web.util.HtmlUtils;
 import springfox.documentation.annotations.ApiIgnore;
 
 import javax.annotation.Resource;
-import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
-import java.io.*;
+import java.io.OutputStream;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -172,14 +173,14 @@ public class XEmailTaskServer {
                     return emailXpackService.printPdf(url, currentToken, buildPixel(request.getPixel()), request.isShowPageNo(), false);
                 } catch (Exception e) {
                     LogUtil.error(e.getMessage(), e);
-                    DEException.throwException("预览失败，请联系管理员");
+                    DataEaseException.throwException("预览失败，请联系管理员");
                 }
                 return null;
             }, 0);
             Object object = future.get();
             if (ObjectUtils.isNotEmpty(object)) {
                 bytes = (byte[]) object;
-                if (ArrayUtil.isNotEmpty(bytes)) {
+                if (ArrayUtils.isNotEmpty(bytes)) {
                     String fileName = request.getPanelId() + ".pdf";
                     ByteArrayResource bar = new ByteArrayResource(bytes);
                     HttpHeaders headers = new HttpHeaders();
@@ -191,7 +192,7 @@ public class XEmailTaskServer {
             }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException("预览失败，请联系管理员");
+            DataEaseException.throwException("预览失败，请联系管理员");
         }
 
         return null;
@@ -207,17 +208,17 @@ public class XEmailTaskServer {
             String currentToken = ServletUtils.getToken();
             Future<?> future = priorityExecutor.submit(() -> {
                 try {
-                    return emailXpackService.print(url, currentToken, buildPixel(request.getPixel()));
+                    return emailXpackService.print(url, currentToken, buildPixel(request.getPixel()), request.getExtWaitTime());
                 } catch (Exception e) {
                     LogUtil.error(e.getMessage(), e);
-                    DEException.throwException("预览失败，请联系管理员");
+                    DataEaseException.throwException("预览失败，请联系管理员");
                 }
                 return null;
             }, 0);
             Object object = future.get();
             if (ObjectUtils.isNotEmpty(object)) {
                 bytes = (byte[]) object;
-                if (ArrayUtil.isNotEmpty(bytes)) {
+                if (ArrayUtils.isNotEmpty(bytes)) {
                     String fileName = request.getPanelId() + ".jpeg";
                     ByteArrayResource bar = new ByteArrayResource(bytes);
                     HttpHeaders headers = new HttpHeaders();
@@ -229,7 +230,7 @@ public class XEmailTaskServer {
             }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException("预览失败，请联系管理员");
+            DataEaseException.throwException("预览失败，请联系管理员");
         }
 
         return null;
@@ -247,10 +248,10 @@ public class XEmailTaskServer {
         try {
             Future<?> future = priorityExecutor.submit(() -> {
                 try {
-                    return emailXpackService.print(url, token, buildPixel(request.getPixel()));
+                    return emailXpackService.print(url, token, buildPixel(request.getPixel()), request.getExtWaitTime());
                 } catch (Exception e) {
                     LogUtil.error(e.getMessage(), e);
-                    DEException.throwException("预览失败，请联系管理员");
+                    DataEaseException.throwException("预览失败，请联系管理员");
                 }
                 return null;
             }, 0);
@@ -268,7 +269,7 @@ public class XEmailTaskServer {
             }
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            DEException.throwException("预览失败，请联系管理员");
+            DataEaseException.throwException("预览失败，请联系管理员");
         }
         return null;
 
@@ -285,7 +286,7 @@ public class XEmailTaskServer {
             emailXpackService.delete(taskId);
         } catch (Exception e) {
             LogUtil.error(e);
-            DEException.throwException(e);
+            DataEaseException.throwException(e);
         }
     }
 
@@ -302,7 +303,7 @@ public class XEmailTaskServer {
             emailXpackService.batchDel(taskIds);
         } catch (Exception e) {
             LogUtil.error(e);
-            DEException.throwException(e);
+            DataEaseException.throwException(e);
         }
     }
 
@@ -340,35 +341,52 @@ public class XEmailTaskServer {
         Pager<List<XpackTaskInstanceDTO>> listPager = instancesGrid(0, 0, request);
         List<XpackTaskInstanceDTO> instanceDTOS = listPager.getListObject();
         ExcelSheetModel excelSheetModel = excelSheetModel(instanceDTOS);
-        List<ExcelSheetModel> sheetModels = new ArrayList<>();
-        sheetModels.add(excelSheetModel);
-        File file = ExcelUtils.exportExcel(sheetModels, null, null);
-        InputStream inputStream = new FileInputStream(file);
         HttpServletResponse response = ServletUtils.response();
+        OutputStream outputStream = response.getOutputStream();
         try {
-            String filename = file.getName();
-            response.reset();
-            response.addHeader("Access-Control-Allow-Origin", "*");
-            response.setContentType("application/octet-stream;charset=UTF-8");
-            response.addHeader("Content-Disposition", "attachment; filename=" + URLEncoder.encode(filename, "UTF-8"));
-            ServletOutputStream outputStream = response.getOutputStream();
-            byte[] buff = new byte[1024];
-            BufferedInputStream bis = null;
-            // 读取文件
-            bis = new BufferedInputStream(inputStream);
-            int i = bis.read(buff);
-            while (i != -1) {
-                outputStream.write(buff, 0, buff.length);
-                outputStream.flush();
-                i = bis.read(buff);
+            Workbook wb = new SXSSFWorkbook();
+            Sheet detailsSheet = wb.createSheet(excelSheetModel.getSheetName());
+            CellStyle cellStyle = wb.createCellStyle();
+            Font font = wb.createFont();
+            //设置字体大小
+            font.setFontHeightInPoints((short) 12);
+            //设置字体加粗
+            font.setBold(true);
+            //给字体设置样式
+            cellStyle.setFont(font);
+            //设置单元格背景颜色
+            cellStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            //设置单元格填充样式(使用纯色背景颜色填充)
+            cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            List<List<String>> details = null;
+            if (CollectionUtils.isNotEmpty(details = excelSheetModel.getData())) {
+                details.add(0, excelSheetModel.getHeads());
+                for (int i = 0; i < details.size(); i++) {
+                    Row row = detailsSheet.createRow(i);
+                    List<String> rowData = details.get(i);
+                    if (rowData != null) {
+                        for (int j = 0; j < rowData.size(); j++) {
+                            Cell cell = row.createCell(j);
+                            cell.setCellValue(rowData.get(j));
+                            if (i == 0) {// 头部
+                                detailsSheet.setColumnWidth(j, 255 * 20);
+                                cell.setCellStyle(cellStyle);
+                            }
+                        }
+                    }
+                }
             }
+
+            response.setContentType("application/vnd.ms-excel");
+            //文件名称
+            String fileName = excelSheetModel.getSheetName();
+            String encodeFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+            response.setHeader("Content-disposition", "attachment;filename=" + encodeFileName + ".xlsx");
+            wb.write(outputStream);
+            outputStream.flush();
             outputStream.close();
-            inputStream.close();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        } finally {
-            if (file.exists())
-                FileUtil.del(file);
+        } catch (Exception e) {
+            DataEaseException.throwException(e);
         }
 
     }

@@ -4,7 +4,7 @@
       <el-form
         ref="sizeFormBar"
         :model="sizeForm"
-        label-width="80px"
+        label-width="84px"
         size="mini"
       >
         <!--bar-begin-->
@@ -258,10 +258,15 @@
         >
           <el-radio-group
             v-model="sizeForm.tableColumnMode"
+            class="column-radio"
             @change="changeBarSizeCase('tableColumnMode')"
           >
             <el-radio label="adapt"><span>{{ $t('chart.table_column_adapt') }}</span></el-radio>
+            <!--此处为了兼容原有的配置，原先的自定义效果实际为固定列宽，后续添加的按列配置才是实际的自定义列宽。-->
             <el-radio label="custom">
+              <span>{{ $t('chart.table_column_fixed') }}</span>
+            </el-radio>
+            <el-radio v-if="equalsAny(chart.type, 'table-info', 'table-normal')" label="field">
               <span>{{ $t('chart.table_column_custom') }}</span>
             </el-radio>
           </el-radio-group>
@@ -296,6 +301,68 @@
           />
         </el-form-item>
         <el-form-item
+          v-if="showProperty('tableColumnMode') && sizeForm.tableColumnMode === 'field'"
+          label=""
+          class="form-item"
+        >
+          <el-row>
+            <el-col :span="10">
+              <el-select
+                v-model="fieldColumnWidth.fieldId"
+                :min="10"
+                :max="500"
+                show-input
+                :show-input-controls="false"
+                input-size="mini"
+                @change="changeFieldColumn()"
+              >
+                <el-option
+                  v-for="item in sizeForm.tableFieldWidth"
+                  :key="item.fieldId"
+                  :label="item.name"
+                  :value="item.fieldId"
+                />
+              </el-select>
+            </el-col>
+            <el-col :span="12" :offset="2">
+              <el-input
+                v-model.number="fieldColumnWidth.width"
+                type="number"
+                :min="0"
+                :max="100"
+                @change="changeFieldColumnWidth()"
+              >
+                <template #append>%</template>
+              </el-input>
+            </el-col>
+          </el-row>
+        </el-form-item>
+        <el-form-item
+          v-if="showProperty('tableFreeze')"
+          :label="$t('chart.table_freeze')"
+          class="form-item"
+        >
+          <span>{{ $t('dynamic_time.before') }} </span>
+          <el-input-number
+            v-model="sizeForm.tableColumnFreezeHead"
+            :min="0"
+            :max="100"
+            :step-strictly="true"
+            @change="changeBarSizeCase('tableColumnFreezeHead')"
+          />
+          <span> {{ $t('chart.column') }}</span>
+          <div style="margin: 5px 0" />
+          <span>{{ $t('dynamic_time.before') }} </span>
+          <el-input-number
+            v-model="sizeForm.tableRowFreezeHead"
+            :min="0"
+            :max="1000"
+            :step-strictly="true"
+            @change="changeBarSizeCase('tableRowFreezeHead')"
+          />
+          <span> {{ $t('deDataset.row') }}</span>
+        </el-form-item>
+        <el-form-item
           v-if="showProperty('showIndex')"
           :label="$t('chart.table_show_index')"
           class="form-item"
@@ -309,6 +376,17 @@
             <el-radio :label="false">{{ $t('panel.no') }}</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item
+          v-if="showProperty('tableCellTooltip')"
+          :label="$t('chart.table_cell_tooltip')"
+          class="form-item"
+        >
+          <el-checkbox
+            v-model="sizeForm.tableCellTooltip.show"
+            @change="changeBarSizeCase('tableCellTooltip')"
+          />
+        </el-form-item>
+
         <el-form-item
           v-if="showProperty('indexLabel') && sizeForm.showIndex"
           :label="$t('chart.table_index_desc')"
@@ -334,7 +412,7 @@
             <el-radio :label="false">{{ $t('commons.no') }}</el-radio>
           </el-radio-group>
         </el-form-item>
-        <div v-if="showProperty('showTableHeader') && sizeForm.showTableHeader">
+        <div v-if="(showProperty('showTableHeader') && sizeForm.showTableHeader) || chart.type === 'table-pivot'">
           <el-form-item
             v-if="showProperty('tableTitleFontSize')"
             :label="$t('chart.table_title_fontsize')"
@@ -1519,6 +1597,8 @@
 import { CHART_FONT_FAMILY, CHART_FONT_LETTER_SPACE, DEFAULT_SIZE } from '../../chart/chart'
 import { equalsAny, includesAny } from '@/utils/StringUtils'
 import { mapState } from 'vuex'
+import { SERIES_NUMBER_FIELD } from '@antv/s2'
+import _ from 'lodash'
 
 export default {
   name: 'SizeSelectorAntV',
@@ -1582,7 +1662,11 @@ export default {
         { name: this.$t('chart.map_line_type_line'), value: 'line' },
         { name: this.$t('chart.map_line_type_arc'), value: 'arc' },
         { name: this.$t('chart.map_line_type_arc_3d'), value: 'arc3d' }
-      ]
+      ],
+      fieldColumnWidth: {
+        fieldId: '',
+        width: 10
+      }
     }
   },
   computed: {
@@ -1680,6 +1764,10 @@ export default {
           this.sizeForm.tableItemAlign = this.sizeForm.tableItemAlign ? this.sizeForm.tableItemAlign : DEFAULT_SIZE.tableItemAlign
           this.sizeForm.tableRowTooltip = this.sizeForm.tableRowTooltip ?? DEFAULT_SIZE.tableRowTooltip
           this.sizeForm.tableColTooltip = this.sizeForm.tableColTooltip ?? DEFAULT_SIZE.tableColTooltip
+          this.sizeForm.tableCellTooltip = this.sizeForm.tableCellTooltip ?? DEFAULT_SIZE.tableCellTooltip
+          this.sizeForm.tableColumnFreezeHead = this.sizeForm.tableColumnFreezeHead ?? DEFAULT_SIZE.tableColumnFreezeHead
+          this.sizeForm.tableColumnFreezeTail = this.sizeForm.tableColumnFreezeTail ?? DEFAULT_SIZE.tableColumnFreezeTail
+          this.sizeForm.tableRowFreezeHead = this.sizeForm.tableRowFreezeHead ?? DEFAULT_SIZE.tableRowFreezeHead
 
           this.sizeForm.showIndex = this.sizeForm.showIndex ? this.sizeForm.showIndex : DEFAULT_SIZE.showIndex
           this.sizeForm.showTableHeader = this.sizeForm.showTableHeader !== false
@@ -1735,12 +1823,73 @@ export default {
           }
           this.sizeForm.wordSizeRange = this.sizeForm.wordSizeRange ?? DEFAULT_SIZE.wordSizeRange
           this.sizeForm.wordSpacing = this.sizeForm.wordSpacing ?? DEFAULT_SIZE.wordSpacing
+
+          if (this.chart.type !== 'table-pivot') {
+            let { xaxis, yaxis } = this.chart
+            if (!(xaxis instanceof Object)) {
+              xaxis = JSON.parse(xaxis)
+            }
+            if (!(yaxis instanceof Object)) {
+              yaxis = JSON.parse(yaxis)
+            }
+            let allAxis = xaxis
+            if (this.chart.type === 'table-normal') {
+              allAxis = allAxis.concat(yaxis)
+            }
+            if (allAxis.length && this.sizeForm.showIndex) {
+              allAxis.unshift({
+                dataeaseName: SERIES_NUMBER_FIELD,
+                name: this.sizeForm.indexLabel
+              })
+            }
+            if (!allAxis.length) {
+              this.sizeForm.tableFieldWidth?.splice(0)
+              this.fieldColumnWidth.fieldId = ''
+              this.fieldColumnWidth.width = ''
+            } else {
+              if (!this.sizeForm.tableFieldWidth?.length) {
+                this.sizeForm.tableFieldWidth = []
+                const defaultWidth = parseFloat((100 / allAxis.length).toFixed(2))
+                allAxis.forEach(item => {
+                  this.sizeForm.tableFieldWidth.push({
+                    fieldId: item.dataeaseName,
+                    name: item.name,
+                    width: defaultWidth
+                  })
+                })
+              } else {
+                const fieldMap = this.sizeForm.tableFieldWidth.reduce((p, n) => {
+                  p[n.fieldId] = n
+                  return p
+                },{})
+                this.sizeForm.tableFieldWidth.splice(0)
+                allAxis.forEach(item => {
+                  let width = 10
+                  if (fieldMap[item.dataeaseName]) {
+                    width = fieldMap[item.dataeaseName].width
+                  }
+                  this.sizeForm.tableFieldWidth.push({
+                    fieldId: item.dataeaseName,
+                    name: item.name,
+                    width
+                  })
+                })
+              }
+              let selectedField = this.sizeForm.tableFieldWidth[0]
+              const curFieldIndex = this.sizeForm.tableFieldWidth.findIndex(i => i.fieldId === this.fieldColumnWidth.fieldId)
+              if (curFieldIndex !== -1) {
+                selectedField = this.sizeForm.tableFieldWidth[curFieldIndex]
+              }
+              this.fieldColumnWidth.fieldId = selectedField.fieldId
+              this.fieldColumnWidth.width = selectedField.width
+            }
+          }
         }
       }
     },
     init() {
       const arr = []
-      for (let i = 10; i <= 60; i = i + 2) {
+      for (let i = 6; i <= 60; i = i + 2) {
         arr.push({
           name: i + '',
           value: i + ''
@@ -1749,9 +1898,20 @@ export default {
       this.fontSize = arr
     },
     changeBarSizeCase(modifyName) {
+      if (!this.doChange) {
+        this.doChange = _.debounce(() => this.debounceChange(modifyName), 200)
+      }
+      this.doChange()
+    },
+    debounceChange(modifyName) {
       this.sizeForm['modifyName'] = modifyName
       if (this.sizeForm.gaugeMax <= this.sizeForm.gaugeMin) {
         this.$message.error(this.$t('chart.max_more_than_mix'))
+        return
+      }
+      const reg = /^\d+$/m
+      if (!reg.test(this.sizeForm.tableRowFreezeHead) || !reg.test(this.sizeForm.tableColumnFreezeHead)) {
+        this.$message.error(this.$t('chart.table_freeze') + this.$t('chart.needs_to_be_integer'))
         return
       }
       this.$emit('onSizeChange', this.sizeForm)
@@ -1860,6 +2020,19 @@ export default {
         }
       }
       return false
+    },
+    changeFieldColumn() {
+      const fieldWidth = this.sizeForm.tableFieldWidth?.find(i => i.fieldId === this.fieldColumnWidth.fieldId)
+      if (fieldWidth) {
+        this.fieldColumnWidth.width = fieldWidth.width
+      }
+    },
+    changeFieldColumnWidth() {
+      const fieldWidth = this.sizeForm.tableFieldWidth?.find(i => i.fieldId === this.fieldColumnWidth.fieldId)
+      if (fieldWidth) {
+        fieldWidth.width = this.fieldColumnWidth.width
+        this.changeBarSizeCase('tableFieldWidth')
+      }
     }
   }
 }
@@ -1919,5 +2092,18 @@ export default {
   }
   .form-flex >>> .el-form-item__content {
     display: flex;
+  }
+  ::v-deep input::-webkit-outer-spin-button,
+  ::v-deep input::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+  }
+
+  ::v-deep input[type="number"] {
+    -moz-appearance: textfield !important;
+  }
+  .column-radio {
+    label {
+      margin-right: 10px;
+    }
   }
 </style>

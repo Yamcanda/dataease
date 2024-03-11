@@ -1,7 +1,6 @@
 package io.dataease.service.sys.log;
 
 
-import cn.hutool.core.date.DateUtil;
 import com.google.gson.Gson;
 import io.dataease.auth.api.dto.CurrentUserDto;
 import io.dataease.commons.constants.ParamConstants;
@@ -14,12 +13,13 @@ import io.dataease.controller.sys.request.LogGridRequest;
 import io.dataease.dto.SysLogDTO;
 import io.dataease.dto.SysLogGridDTO;
 import io.dataease.dto.log.FolderItem;
-import io.dataease.exception.DataEaseException;
 import io.dataease.ext.ExtSysLogMapper;
 import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.SysLogExample;
 import io.dataease.plugins.common.base.domain.SysLogWithBLOBs;
 import io.dataease.plugins.common.base.mapper.SysLogMapper;
+import io.dataease.plugins.common.exception.DataEaseException;
+import io.dataease.plugins.common.util.GlobalDateUtils;
 import io.dataease.service.system.SystemParameterService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
@@ -265,7 +265,12 @@ public class LogService {
                 row[1] = logManager.detailInfo(item);
                 row[2] = item.getNickName();
                 row[3] = item.getIp();
-                row[4] = DateUtil.formatDateTime(new Date(item.getTime()));
+                // row[4] = DateUtil.formatDateTime(new Date(item.getTime()));
+                try {
+                    row[4] = GlobalDateUtils.getTimeString(item.getTime());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
                 return row;
             }).collect(Collectors.toList());
             String[] headArr = {"操作类型", "详情", "用户", "IP地址", "时间"};

@@ -12,10 +12,10 @@ call java -version
 call node -v
 call npm config get registry
 
-call mvn clean package -Pstandalone
+:: call mvn clean package -Pstandalone
 :: call mvn clean package -pl assembly -Pstandalone
 
 :: install 后, 后续只在 core 下进行编译打包即可
-:: call mvn install -pl core
+call mvn install -pl !core/frontend,!core/mobile,!core/backend,!assembly
 
 pause

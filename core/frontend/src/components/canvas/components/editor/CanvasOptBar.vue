@@ -1,53 +1,25 @@
 <template>
 
   <div
-    :class="containerClass"
+    class="bar-main"
   >
-
     <div
-      v-if="isPublicLink"
-      ref="widget-div"
-      class="function-div"
-      :class="functionClass"
-    >
-      <el-button-group size="mini">
-        <el-button
-          v-if="fromLink"
-          size="mini"
-          type="button"
-          @click="back2Last"
-        ><span><svg-icon
-          style="width: 12px;height: 12px"
-          icon-class="link-back"
-        />{{ $t('pblink.back_parent') }}</span></el-button>
-        <el-button
-          v-if="existLinkage"
-          size="mini"
-          @click="clearAllLinkage"
-        ><i
-          style="width: 12px;height: 12px"
-          class="icon iconfont icon-quxiaoliandong"
-        />{{ $t('panel.remove_all_linkage') }}</el-button>
-        <el-button
-          size="mini"
-          @click="exportPDF"
-        >
-          <span><svg-icon
-            style="width: 12px;height: 12px"
-            icon-class="link-down"
-          />{{ $t('panel.down') }}</span></el-button>
-      </el-button-group>
-    </div>
-
-    <div
-      v-else-if="existLinkage"
+      v-if="existLinkage || backToTopBtn"
       class="bar-main-right"
     >
       <el-button
+        v-if="existLinkage"
         size="mini"
         type="warning"
         @click="clearAllLinkage"
       ><i class="icon iconfont icon-quxiaoliandong" />{{ $t('panel.remove_all_linkage') }}</el-button>
+
+      <el-button
+        v-if="backToTopBtn"
+        size="mini"
+        type="warning"
+        @click="backToTop"
+      ><i class="icon iconfont icon-back-top" />{{ $t('panel.back_to_top') }}</el-button>
     </div>
   </div>
 </template>
@@ -62,14 +34,26 @@ export default {
     canvasStyleData: {
       type: Object,
       default: null
+    },
+    backToTopBtn: {
+      type: Boolean,
+      default: false
+    },
+    terminal: {
+      type: String,
+      default: 'pc'
     }
   },
   data() {
     return {
-
+      fullscreenElement: null,
+      fullscreenState: false
     }
   },
   computed: {
+    isPcTerminal() {
+      return this.terminal === 'pc'
+    },
     functionClass() {
       let result = 'function-light'
       if (this.canvasStyleData?.panel?.themeColor === 'dark') {
@@ -92,14 +76,41 @@ export default {
     fromLink() {
       return this.$route.query.fromLink === 'true'
     },
-    containerClass() {
-      return this.isPublicLink ? 'trans-pc' : 'bar-main'
-    },
     ...mapState([
       'componentData'
     ])
   },
+
+  mounted() {
+    this.fullscreenElement = document.getElementById('fullscreenElement')
+    document.addEventListener('fullscreenchange', this.handleFullscreenChange)
+  },
+  beforeDestroy() {
+    // 在组件销毁前移除事件监听器
+    document.removeEventListener('fullscreenchange', this.handleFullscreenChange)
+  },
   methods: {
+    handleFullscreenChange() {
+      // 在全屏状态变化时触发此方法
+      if (document.fullscreenElement) {
+        this.fullscreenState = true
+      } else {
+        this.fullscreenState = false
+      }
+    },
+    toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        // 如果当前不是全屏状态，则启动全屏
+        document.documentElement.requestFullscreen().catch(error => {
+          console.error('Request fullscreen failed:', error)
+        })
+      } else {
+        // 如果当前是全屏状态，则退出全屏
+        document.exitFullscreen().catch(error => {
+          console.error('Exit fullscreen failed:', error)
+        })
+      }
+    },
     clearAllLinkage() {
       this.$store.commit('clearPanelLinkageInfo')
       bus.$emit('clear_panel_linkage', { viewId: 'all' })
@@ -113,7 +124,10 @@ export default {
         window.location.reload()
         return false
       } else {
-        this.$router.back(-1)
+        const parentUrl = localStorage.getItem('beforeJumpUrl')
+        localStorage.removeItem('beforeJumpUrl')
+        window.location.href = parentUrl
+        window.location.reload()
       }
     },
     exportPDF() {
@@ -127,6 +141,9 @@ export default {
       const val = this.$refs['widget-div'].style.display
 
       this.$refs['widget-div'].style.display = val ? '' : 'block'
+    },
+    backToTop() {
+      this.$emit('back-to-top')
     }
   }
 }
@@ -164,7 +181,7 @@ export default {
     width: 60px;
     right: 0;
     top: 0;
-    border-top: 60px solid rgba(245, 74, 69, 0);
+    border-top: 10px solid rgba(245, 74, 69, 0);
     border-left: 60px solid transparent;
     cursor: pointer;
     z-index: 999;
@@ -222,4 +239,14 @@ export default {
     }
   }
 
+  .link-public {
+    top: -49px;
+    right: 8px;
+    opacity: 0.8;
+    position: absolute;
+  }
+
+  .function-back-div {
+    right: 100px!important;
+  }
 </style>

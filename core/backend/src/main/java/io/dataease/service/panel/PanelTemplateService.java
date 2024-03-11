@@ -6,12 +6,12 @@ import io.dataease.commons.utils.AuthUtils;
 import io.dataease.commons.utils.BeanUtils;
 import io.dataease.controller.request.panel.PanelTemplateRequest;
 import io.dataease.dto.panel.PanelTemplateDTO;
-import io.dataease.exception.DataEaseException;
 import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.PanelTemplate;
 import io.dataease.plugins.common.base.domain.PanelTemplateExample;
 import io.dataease.plugins.common.base.domain.PanelTemplateWithBLOBs;
 import io.dataease.plugins.common.base.mapper.PanelTemplateMapper;
+import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.service.staticResource.StaticResourceService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -84,7 +84,7 @@ public class PanelTemplateService {
                 //Store static resource into the server
                 staticResourceService.saveFilesToServe(request.getStaticResource());
                 String snapshotName = "template-" + request.getId() + ".jpeg";
-                staticResourceService.saveSingleFileToServe(snapshotName, request.getSnapshot().replace("data:image/jpeg;base64,", ""));
+                staticResourceService.saveSingleFileToServe(snapshotName, request.getSnapshot().replace("data:image/jpeg;base64,", "").replace("data:image/png;base64,", ""));
                 request.setSnapshot("/" + UPLOAD_URL_PREFIX + '/' + snapshotName);
             }
 

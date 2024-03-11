@@ -260,7 +260,7 @@
             />
           </el-collapse-item>
           <el-collapse-item
-            v-show="showPropertiesCollapse(['legend-selector', 'legend-selector-ant-v'])"
+            v-if="showPropertiesCollapse(['legend-selector', 'legend-selector-ant-v']) && !(chart.type === 'bar-time-range' && !chart.aggregate)"
             name="legend"
             :title="$t('chart.legend')"
           >
@@ -471,13 +471,13 @@ export default {
       return false
     },
     xAisTitle() {
-      if (this.chart.type === 'bidirectional-bar') {
+      if (this.chart.type === 'bidirectional-bar' || this.chart.type === 'bar-time-range') {
         return this.$t('chart.yAxis')
       }
       return this.$t('chart.xAxis')
     },
     yAxisTitle() {
-      if (this.chart.type === 'bidirectional-bar') {
+      if (this.chart.type === 'bidirectional-bar' || this.chart.type === 'bar-time-range') {
         return this.$t('chart.xAxis')
       }
       if (this.chart.type === 'chart-mix') {

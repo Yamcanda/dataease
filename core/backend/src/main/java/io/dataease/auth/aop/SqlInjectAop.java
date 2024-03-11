@@ -1,10 +1,10 @@
 package io.dataease.auth.aop;
 
-import cn.hutool.core.util.ArrayUtil;
 import io.dataease.auth.annotation.SqlInjectValidator;
-import io.dataease.commons.exception.DEException;
+import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.plugins.common.request.KeywordRequest;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
@@ -47,7 +47,7 @@ public class SqlInjectAop {
             String[] value = annotation.value();
             boolean illegal = isIllegal(value, request.getOrders());
             if (illegal) {
-                DEException.throwException("Illegal sort exp");
+                DataEaseException.throwException("Illegal sort exp");
             }
             return point.proceed(args);
         } catch (Throwable e) {
@@ -56,7 +56,7 @@ public class SqlInjectAop {
     }
 
     private boolean isIllegal(String[] value, List<String> orderList) {
-        if (CollectionUtils.isEmpty(orderList) || ArrayUtil.isEmpty(value)) return false;
+        if (CollectionUtils.isEmpty(orderList) || ArrayUtils.isEmpty(value)) return false;
         Set<String> wordList = Arrays.stream(value).collect(Collectors.toSet());
         wordList.add("asc");
         wordList.add("desc");

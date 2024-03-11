@@ -1,6 +1,5 @@
 package io.dataease.service.datasource;
 
-import cn.hutool.core.collection.CollectionUtil;
 import com.google.gson.Gson;
 import io.dataease.commons.constants.SysLogConstants;
 import io.dataease.commons.utils.BeanUtils;
@@ -16,7 +15,8 @@ import io.dataease.plugins.common.base.mapper.DeDriverMapper;
 import io.dataease.plugins.datasource.entity.JdbcConfiguration;
 import io.dataease.plugins.datasource.provider.DefaultJdbcProvider;
 import io.dataease.plugins.datasource.provider.ExtendedJdbcClassLoader;
-import io.dataease.provider.ProviderFactory;
+import io.dataease.plugins.datasource.provider.ProviderFactory;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +27,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
-import java.net.URL;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -47,7 +46,7 @@ public class DriverService {
 
     public List<DriverDTO> list() throws Exception {
         List<DriverDTO> driverDTOS = new ArrayList<>();
-        deDriverMapper.selectByExample(null).forEach(deDriver -> {
+        deDriverMapper.selectByExampleWithBLOBs(null).forEach(deDriver -> {
             DriverDTO driverDTO = new DriverDTO();
             BeanUtils.copyBean(driverDTO, deDriver);
             datasourceService.types().forEach(dataSourceType -> {
@@ -81,10 +80,9 @@ public class DriverService {
         }
         DeDriverExample example = new DeDriverExample();
         example.createCriteria().andNameEqualTo(deDriver.getName());
-        if(CollectionUtil.isNotEmpty(deDriverMapper.selectByExample(example))){
+        if(CollectionUtils.isNotEmpty(deDriverMapper.selectByExampleWithBLOBs(example))){
             throw new RuntimeException(Translator.get("I18N_DRIVER_REPEAT_NAME"));
         }
-
         deDriver.setCreateTime(System.currentTimeMillis());
         deDriver.setId(UUID.randomUUID().toString());
         deDriverMapper.insert(deDriver);
@@ -92,10 +90,13 @@ public class DriverService {
     }
 
     public DeDriver update(DeDriver deDriver) {
-        deDriverMapper.updateByPrimaryKey(deDriver);
+        deDriverMapper.updateByPrimaryKeyWithBLOBs(deDriver);
         return deDriver;
     }
 
+    public DeDriver get(String id) {
+        return deDriverMapper.selectByPrimaryKey(id);
+    }
 
     public List<DeDriverDetails> listDriverDetails(String driverId) {
         DeDriverDetailsExample example = new DeDriverDetailsExample();
@@ -148,7 +149,7 @@ public class DriverService {
 
         DeDriverDetailsExample deDriverDetailsExample = new DeDriverDetailsExample();
         deDriverDetailsExample.createCriteria().andDeDriverIdEqualTo(driverId).andFileNameEqualTo(filename);
-        if(CollectionUtil.isNotEmpty(deDriverDetailsMapper.selectByExample(deDriverDetailsExample))){
+        if(CollectionUtils.isNotEmpty(deDriverDetailsMapper.selectByExample(deDriverDetailsExample))){
             throw new Exception("A file with the same name already exists：" + filename);
         }
 

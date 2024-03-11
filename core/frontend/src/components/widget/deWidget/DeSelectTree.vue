@@ -4,6 +4,7 @@
     v-if="element.options!== null && element.options.attrs!==null && show"
     ref="deSelectTree"
     v-model="value"
+    :class="{'show-required-tips': showRequiredTips}"
     popover-class="test-class-wrap"
     :data="data"
     :select-params="selectParams"
@@ -69,7 +70,7 @@ export default {
       value: this.isSingle ? '' : [],
       selectParams: {
         clearable: true,
-        placeholder: this.$t(this.element.options.attrs.placeholder)
+        placeholder: this.showRequiredTips ? this.$t('panel.required_tips') : this.$t(this.element.options.attrs.placeholder)
       },
       treeParams: {
         showParent: true,
@@ -118,6 +119,9 @@ export default {
     customStyle() {
       const { brColor, wordColor, innerBgColor } = this.element.style
       return { brColor, wordColor, innerBgColor }
+    },
+    showRequiredTips() {
+      return this.inDraw && this.element.options.attrs.required && (!this.value || !this.value.length)
     }
   },
 
@@ -271,7 +275,8 @@ export default {
       this.value = this.fillValueDerfault()
       this.data = []
       this.initOptions()
-      if (this.element.options.value) {
+      const existLastValidFilters = this.$store.state.lastValidFilters && this.$store.state.lastValidFilters[this.element.id]
+      if (this.element.options.value || existLastValidFilters) {
         this.value = this.fillValueDerfault()
         this.changeValue(this.value)
       }
@@ -309,6 +314,12 @@ export default {
         this.element.options.manualModify = false
       } else {
         this.element.options.manualModify = true
+        if (!this.showRequiredTips) {
+          this.$store.commit('setLastValidFilters', {
+            componentId: this.element.id,
+            val: (this.value && Array.isArray(this.value)) ? this.value.join(',') : this.value
+          })
+        }
       }
       this.setCondition()
     },
@@ -327,6 +338,9 @@ export default {
     },
 
     setCondition() {
+      if (this.showRequiredTips) {
+        return
+      }
       const param = this.getCondition()
       !this.isRelation && this.inDraw && this.$store.commit('addViewFilter', param)
     },
@@ -366,7 +380,16 @@ export default {
     },
 
     fillValueDerfault() {
-      const defaultV = this.element.options.value === null ? '' : this.element.options.value.toString()
+      let defaultV = this.element.options.value === null ? '' : this.element.options.value.toString()
+      if (this.inDraw) {
+        let lastFilters = null
+        if (this.$store.state.lastValidFilters) {
+          lastFilters = this.$store.state.lastValidFilters[this.element.id]
+          if (lastFilters) {
+            defaultV = lastFilters.val === null ? '' : lastFilters.val.toString()
+          }
+        }
+      }
       if (this.element.options.attrs.multiple) {
         if (defaultV === null || typeof defaultV === 'undefined' || defaultV === '' || defaultV === '[object Object]') return []
         return defaultV.split(',')
@@ -414,11 +437,24 @@ export default {
 }
 </script>
 
+<style lang="scss" scoped>
+.show-required-tips ::v-deep .el-input__inner {
+  border-color: #ff0000 !important;
+}
+.show-required-tips ::v-deep .el-input__inner::placeholder {
+  color: #ff0000 !important;
+}
+.show-required-tips ::v-deep i {
+  color: #ff0000 !important;
+}
+</style>
 <style lang="scss">
 .test-class-wrap {
   background: var(--BgSelectTreeColor, #FFFFFF) !important;
   border-color: var(--BrSelectTreeColor, #E4E7ED) !important;
-
+  .el-tree__empty-text {
+    position: relative !important;
+  }
   .popper__arrow,
   .popper__arrow::after {
     display: none !important;
@@ -456,5 +492,6 @@ export default {
       border-left: none;
     }
   }
+  
 }
 </style>

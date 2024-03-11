@@ -152,9 +152,10 @@
 </template>
 
 <script>
-import {compareItem} from '@/utils/compare'
+import {compareItem} from '../../utils/compare'
 import {getItemType, getOriginFieldName, resetValueFormatter, quotaViews} from './utils'
 import FieldErrorTips from './FieldErrorTips'
+import {formatterItem} from "../../utils/map";
 
 export default {
   name: 'QuotaItem',
@@ -188,6 +189,7 @@ export default {
   data() {
     return {
       compareItem: compareItem,
+      formatterItem: formatterItem,
       disableEditCompare: false,
       tagType: 'success',
       quotaViews: quotaViews
@@ -212,6 +214,9 @@ export default {
     init() {
       if (!this.item.compareCalc) {
         this.item.compareCalc = JSON.parse(JSON.stringify(this.compareItem))
+      }
+      if (!this.item.formatterCfg) {
+        this.item.formatterCfg = JSON.parse(JSON.stringify(this.formatterItem))
       }
     },
     isEnableCompare() {
@@ -259,7 +264,6 @@ export default {
     },
 
     summary(param) {
-      // console.log(param)
       this.item.summary = param.type
       this.$emit('onQuotaItemChange', this.item)
     },
@@ -270,7 +274,6 @@ export default {
     },
 
     switchChartType(param) {
-      // console.log(param)
       this.item.chartType = param.type
       this.$emit('onQuotaItemChange', this.item)
     },
@@ -318,7 +321,6 @@ export default {
     },
 
     sort(param) {
-      // console.log(param)
       this.item.sort = param.type
       this.$emit('onQuotaItemChange', this.item)
     },

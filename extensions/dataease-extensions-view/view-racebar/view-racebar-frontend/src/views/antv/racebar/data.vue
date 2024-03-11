@@ -5,22 +5,31 @@
       <span style="width: 80px;text-align: right;">
         <span>{{ $t('plugin_view_racebar.source') }}</span>/<span>{{ $t('chart.dimension') }}</span>
       </span>
-      <draggable v-model="view.xaxis" group="drag" animation="300" :move="onMove" class="drag-block-style"
-                 @add="addXaxis" @update="calcData(true)">
+      <draggable
+        v-model="view.xaxis"
+        :move="onMove"
+        animation="300"
+        class="drag-block-style"
+        group="drag"
+        @add="addXaxis"
+        @update="calcData(true)"
+      >
         <transition-group class="draggable-group">
-          <dimension-item v-for="(item,index) in view.xaxis" :key="index"
-                          :param="param"
-                          :index="0"
-                          :item="item"
-                          :dimension-data="dimension"
-                          :quota-data="quotaData"
-                          :chart="chart"
-                          @onDimensionItemChange="dimensionItemChange"
-                          @onDimensionItemRemove="dimensionItemRemove"
-                          @editItemFilter="showDimensionEditFilter"
-                          @onNameEdit="showRename"
-                          dimension-name="dimension"
-                          :bus="bus"
+          <dimension-item
+            v-for="(item,index) in view.xaxis"
+            :key="index"
+            :bus="bus"
+            :chart="chart"
+            :dimension-data="dimension"
+            :index="0"
+            :item="item"
+            :param="param"
+            :quota-data="quotaData"
+            dimension-name="dimension"
+            @editItemFilter="showDimensionEditFilter"
+            @onDimensionItemChange="dimensionItemChange"
+            @onDimensionItemRemove="dimensionItemRemove"
+            @onNameEdit="showRename"
           />
         </transition-group>
       </draggable>
@@ -35,10 +44,10 @@
       </span>
       <draggable
         v-model="view.xaxisExt"
-        group="drag"
-        animation="300"
         :move="onMove"
+        animation="300"
         class="drag-block-style"
+        group="drag"
         @add="addXaxisExt"
         @update="calcData(true)"
       >
@@ -46,17 +55,17 @@
           <dimension-ext-item
             v-for="(item,index) in view.xaxisExt"
             :key="item.id"
-            :param="param"
+            :bus="bus"
+            :chart="chart"
+            :dimension-data="dimension"
             :index="index"
             :item="item"
-            :dimension-data="dimension"
+            :param="param"
             :quota-data="quotaData"
-            :chart="chart"
+            @editItemFilter="showDimensionEditFilter"
             @onDimensionItemChange="dimensionItemChange"
             @onDimensionItemRemove="dimensionItemRemove"
-            @editItemFilter="showDimensionEditFilter"
             @onNameEdit="showRename"
-            :bus="bus"
           />
         </transition-group>
       </draggable>
@@ -69,17 +78,32 @@
       <span style="width: 80px;text-align: right;">
         <span>{{ $t('plugin_view_racebar.mark_size') }}</span>/<span>{{ $t('chart.quota') }}</span>
       </span>
-      <draggable v-model="view.yaxis" group="drag" animation="300" :move="onMove" class="drag-block-style"
-                 @add="addYaxis" @update="calcData(true)">
+      <draggable
+        v-model="view.yaxis"
+        :move="onMove"
+        animation="300"
+        class="drag-block-style"
+        group="drag"
+        @add="addYaxis"
+        @update="calcData(true)"
+      >
         <transition-group class="draggable-group">
-          <quota-item v-for="(item,index) in view.yaxis" :key="item.id" :param="param" :index="index" :item="item"
-                      :chart="chart" :dimension-data="dimension" :quota-data="quota"
-                      @onQuotaItemChange="quotaItemChange"
-                      @onQuotaItemRemove="quotaItemRemove"
-                      @editItemFilter="showQuotaEditFilter"
-                      @valueFormatter="valueFormatter"
-                      @onNameEdit="showRename"
-                      @editItemCompare="showQuotaEditCompare"/>
+          <quota-item
+            v-for="(item,index) in view.yaxis"
+            :key="item.id"
+            :chart="chart"
+            :dimension-data="dimension"
+            :index="index"
+            :item="item"
+            :param="param"
+            :quota-data="quota"
+            @editItemCompare="showQuotaEditCompare"
+            @editItemFilter="showQuotaEditFilter"
+            @onNameEdit="showRename"
+            @onQuotaItemChange="quotaItemChange"
+            @onQuotaItemRemove="quotaItemRemove"
+            @valueFormatter="valueFormatter"
+          />
         </transition-group>
       </draggable>
       <div v-if="!view.yaxis || view.yaxis.length === 0" class="drag-placeholder-style">
@@ -90,22 +114,33 @@
 
     <!-- 结果过滤器 -->
     <el-row class="padding-lr" style="margin-top: 6px;">
-      <span>{{ $t('chart.result_filter') }}</span>
-
-      <draggable v-model="view.customFilter" group="drag" animation="300" :move="onMove" class="theme-item-class"
-                 style="padding:2px 0 0 0;width:100%;min-height: 32px;border-radius: 4px;border: 1px solid #DCDFE6;overflow-x: auto;display: flex;align-items: center;background-color: white;"
-                 @add="addCustomFilter" @update="calcData(true)">
-        <transition-group class="draggable-group">
-          <filter-item v-for="(item,index) in view.customFilter" :key="item.id" :param="param" :index="index"
-                       :item="item" :dimension-data="dimension" :quota-data="quota" :bus="bus"
-                       @onFilterItemRemove="filterItemRemove"
-                       @editItemFilter="showEditFilter"/>
-        </transition-group>
-      </draggable>
-      <div v-if="!view.customFilter || view.customFilter.length === 0" class="drag-placeholder-style">
-        <span class="drag-placeholder-style-span">{{ $t('chart.placeholder_field') }}</span>
-      </div>
+      <span class="data-area-label">
+          <span>{{ $t('chart.result_filter') }}</span>
+          <span
+            v-if="!!view.customFilter.logic"
+            class="setting"
+          >{{ $t('chart.is_set') }}</span>
+          <i
+            class="el-icon-arrow-down el-icon-delete data-area-clear"
+            @click="deleteTreeFilter"
+          />
+        </span>
+        <div
+          class="tree-btn"
+          :class="!!view.customFilter.logic && 'active'"
+          @click="openTreeFilter"
+        >
+          <svg-icon
+            class="svg-background"
+            icon-class="icon-filter_outlined"
+          />
+          <span>{{ $t('chart.filter') }}</span>
+        </div>
     </el-row>
+    <FilterTree
+      ref="filterTree"
+     @filter-data="changeFilterData"    @execute-axios="executeAxios"                               
+    />
 
   </div>
 </template>
@@ -116,8 +151,14 @@ import DimensionExtItem from '../../../components/views/DimensionExtItem'
 import QuotaItem from '../../../components/views/QuotaItem'
 import FilterItem from '../../../components/views/FilterItem'
 import messages from '@/de-base/lang/messages'
+import FilterTree from '@/components/views/filter/FilterTree.vue'
 
 export default {
+  provide() {
+    return {
+      filedList: () => this.filedList
+    }
+  },
   props: {
     obj: {
       type: Object,
@@ -128,13 +169,14 @@ export default {
       type: Object,
       required: false,
       default: null
-    },
+    }
   },
   components: {
     DimensionItem,
     DimensionExtItem,
     QuotaItem,
-    FilterItem
+    FilterItem,
+    FilterTree
   },
   data() {
     return {
@@ -151,10 +193,13 @@ export default {
           value: 'line',
           label: '线'
         }
-      ],
+      ]
     }
   },
   computed: {
+    filedList() {
+      return [...this.dimension, ...this.quota].filter(ele => ele.id !== 'count')
+    },
     param() {
       return this.obj.param
     },
@@ -177,12 +222,18 @@ export default {
       return this.obj.quotaData
     },
     listenLists() {
-      if (!this.view) return [0, 0, 0];
+      if (!this.view) return [0, 0, 0]
       return [
         this.view.xaxis ? this.view.xaxis.length : 0,
         this.view.xaxisExt ? this.view.xaxisExt.length : 0,
         this.view.yaxis ? this.view.yaxis.length : 0
       ]
+    },
+    selectedDimension() {
+      return this.obj.selectedDimension
+    },
+    selectedQuota() {
+      return this.obj.selectedQuota
     }
   },
   created() {
@@ -191,9 +242,9 @@ export default {
   mounted() {
   },
   watch: {
-    listenLists: function (val) {
+    listenLists: function(val) {
       if (this.listenLists[0] <= 1 && this.listenLists[1] <= 1 && this.listenLists[2] <= 1) {
-        return;
+        return
       }
       if (this.view.xaxis.length > 1) {
         this.dragCheckType(this.view.xaxis, 'd')
@@ -208,10 +259,20 @@ export default {
         this.view.yaxis = [this.view.yaxis[0]]
       }
       this.calcData(true)
-    },
+    }
 
   },
   methods: {
+    changeFilterData(customFilter) {
+      this.view.customFilter =JSON.parse(JSON.stringify(customFilter))
+      this.calcData(true)
+    },
+    openTreeFilter() {
+      this.$refs.filterTree.init(JSON.parse(JSON.stringify(this.view.customFilter)))
+    },
+    deleteTreeFilter() {
+      this.changeFilterData({})
+    },
     executeAxios(url, type, data, callBack) {
       const param = {
         url: url,
@@ -233,17 +294,17 @@ export default {
       }
     },
 
-
     onMove(e, originalEvent) {
       this.moveId = e.draggedContext.element.id
       return true
     },
 
     addXaxis(e) {
+      this.multiAdd(e, this.view.xaxis)
+      this.dragMoveDuplicate(this.view.xaxis, e)
       if (this.view.type !== 'table-info') {
         this.dragCheckType(this.view.xaxis, 'd')
       }
-      this.dragMoveDuplicate(this.view.xaxis, e)
       if (this.view.xaxis.length > 1) {
         //this.view.xaxis = [this.view.xaxis[0]]
       } else {
@@ -251,10 +312,11 @@ export default {
       }
     },
     addXaxisExt(e) {
+      this.multiAdd(e, this.view.xaxisExt)
+      this.dragMoveDuplicate(this.view.xaxisExt, e)
       if (this.view.type !== 'table-info') {
         this.dragCheckType(this.view.xaxisExt, 'd')
       }
-      this.dragMoveDuplicate(this.view.xaxisExt, e)
       if (this.view.xaxisExt.length > 1) {
         //this.view.xaxisExt = [this.view.xaxisExt[0]]
       } else {
@@ -262,8 +324,9 @@ export default {
       }
     },
     addYaxis(e) {
-      this.dragCheckType(this.view.yaxis, 'q')
+      this.multiAdd(e, this.view.yaxis)
       this.dragMoveDuplicate(this.view.yaxis, e)
+      this.dragCheckType(this.view.yaxis, 'q')
       if (this.view.yaxis.length > 1) {
         //this.view.yaxis = [this.view.yaxis[0]]
       } else {
@@ -272,9 +335,6 @@ export default {
     },
 
     calcData(cache) {
-      //console.log(cache)
-      //this.view.xaxis = [...this.source, ...this.target]
-
       this.$emit('plugin-call-back', {
         eventName: 'calc-data',
         eventParam: {
@@ -343,23 +403,46 @@ export default {
     },
     dragCheckType(list, type) {
       if (list && list.length > 0) {
-        for (let i = 0; i < list.length; i++) {
+        for (let i = list.length - 1; i >= 0; i--) {
           if (list[i].groupType !== type) {
             list.splice(i, 1)
           }
         }
       }
     },
+    multiAdd(e, itemList) {
+      // 只处理原始字段拖拽
+      if (!e.item.classList.contains('selected-item')) {
+        return
+      }
+      const groupDie = e.item.classList.contains('group-dimension')
+      const sourceList = groupDie ? this.selectedDimension : this.selectedQuota
+      if (sourceList.length > 1) {
+        const qdList = groupDie ? this.dimensionData : this.quotaData
+        const sourceIds = sourceList.map(i => i.id)
+        const sortedList = qdList.filter(i => sourceIds.includes(i.id))
+        itemList.splice(e.newIndex, 1, ...sortedList)
+      }
+    },
     dragMoveDuplicate(list, e) {
-      const that = this
-      const dup = list.filter(function (m) {
-        return m.id === that.moveId
-      })
-      if (dup && dup.length > 1) {
-        list.splice(e.newDraggableIndex, 1)
+      let newItems = [list[e.newDraggableIndex]]
+      if (e.item.classList.contains('selected-item')) {
+        const groupDie = e.item.classList.contains('group-dimension')
+        newItems = groupDie ? this.selectedDimension : this.selectedQuota
+      }
+      const preIds = list
+          .filter((_, i) => i < e.newDraggableIndex || i >= e.newDraggableIndex + newItems.length)
+          .map(i => i.id)
+      // 倒序删除
+      for (let i = e.newDraggableIndex + newItems.length - 1; i >= e.newDraggableIndex; i--) {
+        if (preIds.includes(list[i].id)) {
+          list.splice(i, 1)
+        }
       }
     },
     addCustomFilter(e) {
+      this.multiAdd(e, this.view.customFilter)
+      this.dragMoveDuplicate(this.view.customFilter, e)
       // 记录数等自动生成字段不做为过滤条件
       if (this.view.customFilter && this.view.customFilter.length > 0) {
         for (let i = 0; i < this.view.customFilter.length; i++) {
@@ -368,7 +451,6 @@ export default {
           }
         }
       }
-      this.dragMoveDuplicate(this.view.customFilter, e)
       this.calcData(true)
     },
     filterItemRemove(item) {
@@ -389,6 +471,53 @@ export default {
 <style lang="scss" scoped>
 .padding-lr {
   padding: 0 6px;
+  .data-area-label {
+    text-align: left;
+    position: relative;
+    width: 100%;
+    display: inline-block;
+    .setting {
+      padding: 0px 4px 0px 4px;
+      border-radius: 2px;
+      background-color: #1F23291A;
+      color: #646A73;
+      position: absolute;
+      top: 1px;
+      right: 23px;
+      z-index: 1;
+      font-size: 10px;
+      font-weight: 500;
+      line-height: 14px;
+      height: 16px;
+    }
+  }
+
+  .tree-btn {
+      width: 100%;
+      background: #fff;
+      height: 32px;
+      border-radius: 4px;
+      border: 1px solid #DCDFE6;
+      display: flex;
+      color: #CCCCCC;
+      align-items: center;
+      cursor: pointer;
+      justify-content: center;
+      font-size: 12px;
+
+      &.active {
+        color: #3370FF;
+        border-color: #3370FF;
+      }
+    }
+    .data-area-clear {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      color: rgb(135, 141, 159);
+      cursor: pointer;
+      z-index: 1;
+    }
 }
 
 .itxst {

@@ -1,19 +1,19 @@
 package io.dataease.service.dataset;
 
-import cn.hutool.core.date.DateUtil;
 import io.dataease.commons.constants.ParamConstants;
 import io.dataease.commons.utils.AuthUtils;
 import io.dataease.commons.utils.ServletUtils;
 import io.dataease.controller.dataset.request.DataSetTaskInstanceGridRequest;
 import io.dataease.dto.dataset.DataSetTaskDTO;
 import io.dataease.dto.dataset.DataSetTaskLogDTO;
-import io.dataease.exception.DataEaseException;
 import io.dataease.ext.ExtDataSetTaskMapper;
 import io.dataease.i18n.Translator;
 import io.dataease.plugins.common.base.domain.DatasetTableTaskLog;
 import io.dataease.plugins.common.base.domain.DatasetTableTaskLogExample;
 import io.dataease.plugins.common.base.mapper.DatasetTableTaskLogMapper;
 import io.dataease.plugins.common.base.mapper.DatasetTableTaskMapper;
+import io.dataease.plugins.common.exception.DataEaseException;
+import io.dataease.plugins.common.util.GlobalDateUtils;
 import io.dataease.service.system.SystemParameterService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -79,8 +79,12 @@ public class DataSetTableTaskLogService {
                 String[] row = new String[5];
                 row[0] = item.getName();
                 row[1] = item.getDatasetName();
-                row[2] = DateUtil.formatDateTime(new Date(item.getStartTime()));
-                row[3] = item.getEndTime() != null ? DateUtil.formatDateTime(new Date(item.getEndTime())) : "";
+                try {
+                    row[2] = GlobalDateUtils.getTimeString(item.getStartTime());
+                    row[3] = item.getEndTime() != null ? GlobalDateUtils.getTimeString(item.getEndTime()) : "";
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
                 row[4] = Translator.get("I18N_TASK_LOG_" + item.getStatus().toUpperCase());
                 return row;
             }).collect(Collectors.toList());

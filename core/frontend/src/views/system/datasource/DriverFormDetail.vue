@@ -29,6 +29,16 @@
           autocomplete="off"
         />
       </el-form-item>
+      <el-form-item
+          :label="$t('driver.surpportVersions')"
+          prop="surpportVersions"
+      >
+        <el-input
+            v-model="driverForm.surpportVersions"
+            style="width: 600px"
+            autocomplete="off"
+        />
+      </el-form-item>
     </el-form>
     <el-upload
       :action="baseUrl + 'driver/file/upload'"
@@ -97,7 +107,7 @@
 <script>
 import i18n from '@/lang/index'
 import {
-  deleteDriverFile,
+  deleteDriverFile, getDriver,
   listDriverDetails,
   updateDriver
 } from '@/api/system/datasource'
@@ -176,6 +186,13 @@ export default {
             message: i18n.t('driver.please_set_driverClass'),
             trigger: 'blur'
           }
+        ],
+        surpportVersions: [
+          {
+            required: true,
+            message: i18n.t('driver.please_set_surpportVersions'),
+            trigger: 'blur'
+          }
         ]
       },
       canEdit: false,
@@ -199,6 +216,10 @@ export default {
       this.params.showModel === 'show' &&
       !this.canEdit
     this.listDriverDetails()
+
+    getDriver(this.driverForm.id).then((res) => {
+      this.driverForm = res.data
+    })
   },
   methods: {
     beforeUpload(file) {
@@ -288,7 +309,7 @@ export default {
 </script>
 <style lang="scss" scoped>
 .driver-detail {
-  font-family: PingFang SC;
+  font-family: AlibabaPuHuiTi;
   width: 100%;
   height: 100%;
   overflow: auto;
@@ -343,7 +364,7 @@ export default {
       .name-descript {
         margin: 0;
         margin-left: 10px;
-        font-family: PingFang SC;
+        font-family: AlibabaPuHuiTi;
         font-weight: 400;
         display: flex;
         flex-direction: column;
