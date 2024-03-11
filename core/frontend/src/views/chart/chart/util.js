@@ -63,9 +63,11 @@ export const TYPE_CONFIGS = [
         'tableTitleHeight',
         'tableItemHeight',
         'tableColumnMode',
+        'tableFreeze',
         'showIndex',
         'indexLabel',
         'tableColTooltip',
+        'tableCellTooltip',
         'showTableHeader'
       ],
       'title-selector-ant-v': [
@@ -119,7 +121,9 @@ export const TYPE_CONFIGS = [
         'showIndex',
         'indexLabel',
         'tableColTooltip',
-        'showTableHeader'
+        'tableCellTooltip',
+        'showTableHeader',
+        'tableFreeze'
       ],
       'title-selector-ant-v': [
         'show',
@@ -169,7 +173,8 @@ export const TYPE_CONFIGS = [
         'tableItemHeight',
         'tableColumnMode',
         'tableRowTooltip',
-        'tableColTooltip'
+        'tableColTooltip',
+        'tableCellTooltip'
       ],
       'total-cfg': [
         'row',
@@ -1103,6 +1108,85 @@ export const TYPE_CONFIGS = [
   {
     render: 'antv',
     category: 'chart.chart_type_compare',
+    value: 'bar-time-range',
+    title: 'chart.chart_bar_time_range',
+    icon: 'bar-time-range',
+    properties: [
+      'color-selector',
+
+      'label-selector-ant-v',
+      'tooltip-selector-ant-v',
+      'x-axis-selector-ant-v',
+      'y-axis-selector-ant-v',
+      'title-selector-ant-v',
+      'legend-selector-ant-v'
+    ],
+    propertyInner: {
+      'color-selector': [
+        'value',
+        'colorPanel',
+        'customColor',
+        'gradient',
+        'alpha'
+      ],
+      'size-selector-ant-v': [
+        'barDefault',
+        'barGap'
+      ],
+      'label-selector-ant-v': [
+        'show',
+        'fontSize',
+        'color',
+        'position-h'
+      ],
+      'tooltip-selector-ant-v': [
+        'show',
+        'textStyle'
+      ],
+      'x-axis-selector-ant-v': [
+        'show',
+        'position',
+        'name',
+        'nameTextStyle',
+        'splitLine',
+        'axisForm',
+        'axisLabel'
+      ],
+      'y-axis-selector-ant-v': [
+        'show',
+        'position',
+        'name',
+        'nameTextStyle',
+        'splitLine',
+        'axisForm',
+        'axisLabel'
+      ],
+      'title-selector-ant-v': [
+        'show',
+        'title',
+        'fontSize',
+        'color',
+        'hPosition',
+        'isItalic',
+        'isBolder',
+        'remarkShow',
+        'fontFamily',
+        'letterSpace',
+        'fontShadow'
+      ],
+      'legend-selector-ant-v': [
+        'show',
+        'icon',
+        'orient',
+        'textStyle',
+        'hPosition',
+        'vPosition'
+      ]
+    }
+  },
+  {
+    render: 'antv',
+    category: 'chart.chart_type_compare',
     value: 'bar-stack-horizontal',
     title: 'chart.chart_bar_stack_horizontal',
     icon: 'bar-stack-horizontal',
@@ -1669,8 +1753,7 @@ export const TYPE_CONFIGS = [
       'label-selector-ant-v': [
         'show',
         'fontSize',
-        'color',
-        'position-v'
+        'color'
       ],
       'tooltip-selector-ant-v': [
         'show',
@@ -2002,6 +2085,7 @@ export const TYPE_CONFIGS = [
         'tableTitleHeight',
         'tableItemHeight',
         'tableColumnWidth',
+        'tableFreeze',
         'showIndex',
         'indexLabel',
         'tableAutoBreakLine',
@@ -2051,6 +2135,7 @@ export const TYPE_CONFIGS = [
         'tableColumnWidth',
         'showIndex',
         'indexLabel',
+        'tableFreeze',
         'tableAutoBreakLine',
         'showTableHeader'
       ],
@@ -3427,9 +3512,16 @@ export function customColor(custom, res, colors) {
     let flag = false
     for (let j = 0; j < custom.length; j++) {
       const c = custom[j]
-      if (r.name === c.name) {
+      if (c.id && c.id === r.id) {
         flag = true
         result.push(c)
+        break
+      }
+      if (r.name === c.name) {
+        flag = true
+        c.id = r.id
+        result.push(c)
+        break
       }
     }
     if (!flag) {
@@ -3440,16 +3532,38 @@ export function customColor(custom, res, colors) {
 }
 
 export function getColors(chart, colors, reset) {
+  const ifAggregate = !!chart.aggregate
   // 自定义颜色，先按照没有设定的情况，并排好序，当做最终结果
   let seriesColors = []
   let series
-  if (chart.type.includes('stack')) {
+  if (!ifAggregate && chart.type === 'bar-time-range') {
+    if (chart.data && chart.data.data && chart.data.data.length > 0) {
+      // 只能处理field字段
+      const groups = []
+      for (let i = 0; i < chart.data.data.length; i++) {
+        const name = chart.data.data[i].field
+        if (groups.indexOf(name) < 0) {
+          groups.push(name)
+        }
+      }
+      for (let i = 0; i < groups.length; i++) {
+        const s = groups[i]
+        seriesColors.push({
+          name: s,
+          color: colors[i % colors.length],
+          isCustom: false
+        })
+      }
+    }
+  } else if (chart.type.includes('stack')) {
     if (chart.data) {
       const data = chart.data.data
       const stackData = []
-      for (let i = 0; i < data.length; i++) {
-        const s = data[i]
-        stackData.push(s.category)
+      if (data?.length) {
+        for (let i = 0; i < data.length; i++) {
+          const s = data[i]
+          stackData.push(s.category)
+        }
       }
       const sArr = stackData.filter(function(item, index, stackData) {
         return stackData.indexOf(item, 0) === index
@@ -3517,7 +3631,7 @@ export function getColors(chart, colors, reset) {
         }
       }
     }
-  } else if ((includesAny(chart.type, 'bar', 'radar', 'area')) && !chart.type.includes('group')) {
+  } else if ((includesAny(chart.type, 'bar', 'radar', 'area')) && !chart.type.includes('group') && chart.type !== 'bar-time-range') {
     if (Object.prototype.toString.call(chart.yaxis) === '[object Array]') {
       series = JSON.parse(JSON.stringify(chart.yaxis))
     } else {
@@ -3528,6 +3642,7 @@ export function getColors(chart, colors, reset) {
         const s = series[i]
         seriesColors.push({
           name: s.name,
+          id: s.id,
           color: colors[i % colors.length],
           isCustom: false
         })
@@ -3554,16 +3669,6 @@ export function getColors(chart, colors, reset) {
   } else {
     if (chart.data) {
       const data = chart.data.data
-      // data 的维度值，需要根据自定义顺序排序
-      // let customSortData
-      // if (Object.prototype.toString.call(chart.customSort) === '[object Array]') {
-      //   customSortData = JSON.parse(JSON.stringify(chart.customSort))
-      // } else {
-      //   customSortData = JSON.parse(chart.customSort)
-      // }
-      // if (customSortData && customSortData.length > 0) {
-      //   data = customSort(customSortData, data)
-      // }
       for (let i = 0; i < data.length; i++) {
         const s = data[i]
         seriesColors.push({

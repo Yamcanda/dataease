@@ -37,20 +37,25 @@
         :index-config="{seqMethod}"
         :show-header="showHeader"
         @cell-click="cellClick"
+        @row-contextmenu="(_, __, e) => cellRightClick(e)"
+        @header-contextmenu="(_, e) => cellRightClick(e)"
       >
         <ux-table-column
           type="index"
           :title="indexLabel"
           :width="columnWidth"
+          :resizable="true"
+          :fixed="getFixed(-1)"
         />
         <ux-table-column
-          v-for="field in fields"
+          v-for="(field, index) in fields"
           :key="field.name"
           :field="field.child ? '' : field.dataeaseName"
           :resizable="true"
           :sortable="(!mergeCells || !mergeCells.length) && (!field.child || !field.child.length)"
           :title="field.name"
           :width="columnWidth"
+          :fixed="getFixed(index)"
         >
           <ux-table-column
             v-for="item in field.child"
@@ -77,7 +82,7 @@
             >
               {{ $t('chart.total') }}
               <span>{{
-                (chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
+                ((chart.datasetMode === 0 && !not_support_page_dataset.includes(chart.datasourceType)) || chart.datasetMode === 1) ? chart.totalItems : ((chart.data && chart.data.tableRow) ? chart.data.tableRow.length : 0)
               }}</span>
               {{ $t('chart.items') }}
             </span>
@@ -211,7 +216,8 @@ export default {
         top: '0px'
       },
       pointParam: null,
-      showSummary: true
+      showSummary: true,
+      resizeTimer: null
     }
   },
   computed: {
@@ -236,7 +242,11 @@ export default {
     tableStyle() {
       return {
         width: '100%',
-        '--scroll-bar-color': this.scrollBarColor
+        '--scroll-bar-color': this.scrollBarColor,
+        '--footer-font-color': this.table_header_class.color,
+        '--footer-bg-color': this.table_header_class.background,
+        '--footer-font-size': this.table_header_class.fontSize,
+        '--footer-height': this.table_header_class.height
       }
     },
     ...mapState([
@@ -311,7 +321,7 @@ export default {
         }
 
         data = JSON.parse(JSON.stringify(this.chart.data.tableRow))
-        if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+        if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType) || this.chart.datasetMode === 1)) {
           if (this.chart.type === 'table-info' && (attr.size.tablePageMode === 'page' || !attr.size.tablePageMode) && this.chart.totalItems > this.currentPage.pageSize) {
             this.currentPage.show = this.chart.totalItems
             this.showPage = true
@@ -418,7 +428,8 @@ export default {
       })
     },
     calcHeightDelay() {
-      setTimeout(() => {
+      this.resizeTimer && clearTimeout(this.resizeTimer)
+      this.resizeTimer = setTimeout(() => {
         this.calcHeightRightNow()
       }, 100)
     },
@@ -438,16 +449,14 @@ export default {
           this.table_item_class.fontSize = customAttr.size.tableItemFontSize + 'px'
           this.table_header_class.height = customAttr.size.tableTitleHeight + 'px'
           this.table_item_class.height = customAttr.size.tableItemHeight + 'px'
-
           const visibleColumn = this.$refs.plxTable.getTableColumn().fullColumn
           for (let i = 0, column = visibleColumn[i]; i < visibleColumn.length; i++) {
-            // 有变更才刷新
             if (column.type === 'index' && column.visible !== customAttr.size.showIndex) {
               column.visible = customAttr.size.showIndex
-              this.$refs.plxTable.refreshColumn()
               break
             }
           }
+          this.$refs.plxTable.refreshColumn()
           if (!customAttr.size.indexLabel) {
             this.indexLabel = ' '
           } else {
@@ -473,16 +482,6 @@ export default {
           }
         }
         this.table_item_class_stripe = JSON.parse(JSON.stringify(this.table_item_class))
-        // 暂不支持斑马纹
-        // if (customAttr.color.tableStripe) {
-        //   // this.table_item_class_stripe.background = hexColorToRGBA(customAttr.color.tableItemBgColor, customAttr.color.alpha - 40)
-        //   if (this.chart.customStyle) {
-        //     const customStyle = JSON.parse(this.chart.customStyle)
-        //     if (customStyle.background) {
-        //       this.table_item_class_stripe.background = hexColorToRGBA(customStyle.background.color, customStyle.background.alpha)
-        //     }
-        //   }
-        // }
         if (customAttr.color.enableTableCrossBG) {
           this.table_item_class_stripe.background = hexColorToRGBA(customAttr.color.tableItemSubBgColor, customAttr.color.alpha)
         }
@@ -503,20 +502,6 @@ export default {
           this.bg_class.background = hexColorToRGBA(customStyle.background.color, customStyle.background.alpha)
         }
       }
-      // 修改footer合计样式
-      const table = document.getElementsByClassName(this.chart.id)
-      this.$refs.plxTable.updateFooter().then(() => {
-        for (let i = 0; i < table.length; i++) {
-          const s_table = table[i].getElementsByClassName('elx-table--footer')
-          let s = ''
-          for (const i in this.table_header_class) {
-            s += (i === 'fontSize' ? 'font-size' : i) + ':' + this.table_header_class[i] + ';'
-          }
-          for (let i = 0; i < s_table.length; i++) {
-            s_table[i].setAttribute('style', s)
-          }
-        }
-      })
     },
     getRowStyle({ row, rowIndex }) {
       if (rowIndex % 2 !== 0) {
@@ -583,7 +568,7 @@ export default {
 
     pageChange(val) {
       this.currentPage.pageSize = val
-      if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+      if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) || this.chart.datasetMode === 1) {
         this.$emit('onPageChange', this.currentPage)
       } else {
         this.init()
@@ -592,7 +577,7 @@ export default {
 
     pageClick(val) {
       this.currentPage.page = val
-      if (this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) {
+      if ((this.chart.datasetMode === 0 && !NOT_SUPPORT_PAGE_DATASET.includes(this.chart.datasourceType)) || this.chart.datasetMode === 1) {
         this.$emit('onPageChange', this.currentPage)
       } else {
         this.init()
@@ -616,12 +601,6 @@ export default {
       const scrollContainer = document.getElementsByClassName(this.chart.id)[0].getElementsByClassName('elx-table--body-wrapper')[0]
 
       this.scrollTop = 0
-      setTimeout(() => {
-        scrollContainer.scrollTo({
-          top: this.scrollTop,
-          behavior: this.scrollTop === 0 ? 'instant' : 'smooth'
-        })
-      }, 0)
 
       if (senior && senior.scrollCfg && senior.scrollCfg.open && (this.chart.type === 'table-normal' || (this.chart.type === 'table-info' && !this.showPage))) {
         let rowHeight = customAttr.size.tableItemHeight
@@ -640,10 +619,15 @@ export default {
             top = rowHeight * senior.scrollCfg.row
           }
 
-          if (scrollContainer.clientHeight + scrollContainer.scrollTop < scrollContainer.scrollHeight) {
+          const { clientHeight, scrollTop, scrollHeight } = scrollContainer
+
+          if (clientHeight + scrollTop < scrollHeight) {
             this.scrollTop += top
           } else {
             this.scrollTop = 0
+          }
+          if (!clientHeight) {
+            return
           }
           scrollContainer.scrollTo({
             top: this.scrollTop,
@@ -671,6 +655,12 @@ export default {
         y
       }
       this.antVActionPost(dimensionList, nameIdMap[col.property] || 'null', position)
+    },
+    cellRightClick(event) {
+      if (event.target?.innerText) {
+        navigator.clipboard.writeText(event.target.innerText)
+      }
+      event.preventDefault()
     },
     antVActionPost(dimensionList, name, param) {
       this.pointParam = {
@@ -728,6 +718,14 @@ export default {
         default:
           break
       }
+    },
+    getFixed(index) {
+      const size = JSON.parse(this.chart.customAttr).size
+      const { showIndex, tableColumnFreezeHead } = size
+      if (showIndex) {
+        return index < tableColumnFreezeHead - 1 ? 'left' : ''
+      }
+      return index < tableColumnFreezeHead ? 'left' : ''
     }
   }
 }
@@ -816,6 +814,12 @@ export default {
     overflow: var(--overflow, 'hidden');
     text-overflow: var(--text-overflow, 'ellipsis');
     white-space: var(--white-space, 'nowrap');
+  }
+  ::v-deep .elx-table--footer {
+    color: var(--footer-font-color);
+    background: var(--footer-bg-color);
+    font-size: var(--footer-font-size);
+    height: var(--footer-height);
   }
 }
 

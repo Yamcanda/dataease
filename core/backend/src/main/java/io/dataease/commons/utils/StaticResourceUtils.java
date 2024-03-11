@@ -1,13 +1,10 @@
 package io.dataease.commons.utils;
 
-import static io.dataease.commons.constants.StaticResourceConstants.*;
-
-import cn.hutool.core.codec.Base64Encoder;
-import io.dataease.exception.DataEaseException;
-import io.dataease.i18n.Translator;
+import io.dataease.plugins.common.exception.DataEaseException;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.util.Assert;
+import org.springframework.util.Base64Utils;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -70,12 +67,11 @@ public class StaticResourceUtils {
     }
 
     /**
-     *
-     * @param imgFile  local storage path
+     * @param imgFile local storage path
      * @return
      */
     public static String getImgFileToBase64(String imgFile) {
-        if(!validateStringFilenameUsingRegex(imgFile)){
+        if (!validateStringFilenameUsingRegex(imgFile)) {
             DataEaseException.throwException("Illegal File Name");
         }
         //Convert the picture file into byte array  and encode it with Base64
@@ -92,9 +88,9 @@ public class StaticResourceUtils {
             inputStream.read(buffer);
         } catch (IOException e) {
             LogUtil.error(e);
-        }catch (Exception e){
+        } catch (Exception e) {
             LogUtil.error(e);
-        }finally {
+        } finally {
             if (inputStream != null) {
                 try {
                     // Close InputStream
@@ -105,10 +101,9 @@ public class StaticResourceUtils {
             }
         }
         // Encode byte array as Base64
-        if(buffer!=null){
-
-             return Base64Encoder.encode(buffer);
-        }else{
+        if (buffer != null) {
+            return Base64Utils.encodeToString(buffer);
+        } else {
             return null;
         }
     }

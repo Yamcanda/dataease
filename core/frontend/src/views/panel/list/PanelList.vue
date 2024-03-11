@@ -334,7 +334,7 @@
             :label="$t('commons.name')"
             prop="name"
           >
-            <el-input v-model="groupForm.name" />
+            <el-input v-model.trim="groupForm.name" />
           </el-form-item>
         </el-form>
         <div
@@ -851,8 +851,9 @@ export default {
     },
 
     delete(data) {
+      const title = data.source ? 'commons.cancel_this_dashboard':(data.nodeType === 'folder' ? 'commons.delete_this_folder' : 'commons.delete_this_dashboard')
       const params = {
-        title: data.nodeType === 'folder' ? 'commons.delete_this_folder' : 'commons.delete_this_dashboard',
+        title: title,
         type: 'danger',
         cb: () => {
           delGroup(data.id).then((response) => {
@@ -1169,7 +1170,7 @@ export default {
   width: 232px;
   cursor: pointer;
   margin: 0;
-  font-family: PingFang SC;
+  font-family: AlibabaPuHuiTi;
   font-size: 14px;
   font-weight: 400;
   color: var(--deTextSecondary, #646a73);

@@ -88,7 +88,8 @@ export function getTheme(chart) {
           'g2-tooltip': {
             color: tooltipColor,
             fontSize: tooltipFontsize + 'px',
-            background: tooltipBackgroundColor
+            background: tooltipBackgroundColor,
+            'z-index': 3000
           }
         }
       },
@@ -128,6 +129,9 @@ export function getLabel(chart) {
           }
           if (l.position === 'outer') {
             label.type = 'spider'
+            label.layout = [
+              { type: 'limit-in-plot' }
+            ]
           }
         } else if (chart.type.includes('line') || chart.type.includes('area')) {
           label = {
@@ -143,7 +147,7 @@ export function getLabel(chart) {
           }
         } else if (chart.type.includes('bar')) {
           label = {
-            layout: [{ type: 'limit-in-canvas' }],
+            layout: [{ type: 'limit-in-plot' }],
             position: l.position
           }
         } else {
@@ -315,7 +319,10 @@ export function getTooltip(chart) {
     if (customAttr.tooltip) {
       const t = JSON.parse(JSON.stringify(customAttr.tooltip))
       if (t.show) {
-        tooltip = {}
+        tooltip = {
+          container: getTooltipContainer(`tooltip-${chart.id}`),
+          itemTpl: TOOLTIP_TPL
+        }
         let xAxis, yAxis, extStack, xAxisExt
 
         try {
@@ -341,6 +348,9 @@ export function getTooltip(chart) {
 
         // tooltip value formatter
         if (chart.type && chart.type !== 'waterfall') {
+          if (chart.type === 'bar-group-stack') {
+            tooltip.fields = []
+          }
           tooltip.formatter = function(param) {
             let res = param.value
 
@@ -419,7 +429,7 @@ export function getTooltip(chart) {
                   res = valueFormatter(param.value, formatterItem)
                 }
               }
-            } else if (includesAny(chart.type, 'bar', 'scatter', 'radar', 'area') && !chart.type.includes('group')) {
+            } else if (includesAny(chart.type, 'bar', 'scatter', 'radar', 'area') && !chart.type.includes('group') && chart.type !== 'bar-time-range') {
               obj = { name: param.category, value: param.value }
               for (let i = 0; i < yAxis.length; i++) {
                 const f = yAxis[i]
@@ -452,7 +462,7 @@ export function getTooltip(chart) {
               } else {
                 let name = ''
                 if (param.group) {
-                  name = param.name + '-'
+                  name = param.group + '-'
                 }
                 if (param.category) {
                   name += param.category
@@ -467,6 +477,9 @@ export function getTooltip(chart) {
                   res = valueFormatter(param.value, formatterItem)
                 }
               }
+            } else if (chart.type === 'bar-time-range') {
+              obj = { values: param.values, name: param.category }
+              res = param.values[0] + ' - ' + param.values[1]
             } else {
               res = param.value
             }
@@ -476,56 +489,55 @@ export function getTooltip(chart) {
           //
           if (chart.type === 'scatter' && xAxis && xAxis.length > 0 && xAxis[0].groupType === 'q') {
             tooltip.fields = ['x', 'category', 'value', 'group', 'field']
-            tooltip.customContent = (title, data) => {
-              const key1 = xAxis[0]?.name
-              let key2, v1, v2, subGroup
+            tooltip.showTitle = true
+            tooltip.title = 'category'
+            let subGroupTpl = ''
+            if (xAxisExt?.length) {
+              subGroupTpl = '<div>' +
+                '<span class="g2-tooltip-name">{subGroupName}</span>:' +
+                '<span class="g2-tooltip-value">{subGroupValue}</span>' +
+                '</div>'
+            }
+            tooltip.itemTpl = '<li class="g2-tooltip-list-item">' +
+              subGroupTpl +
+              '<div>' +
+              '<span class="g2-tooltip-name">{name}</span>:' +
+              '<span class="g2-tooltip-value">{x}</span>' +
+              '</div>' +
+              '<div>' +
+              '<span class="g2-tooltip-name">{group}</span>:' +
+              '<span class="g2-tooltip-value">{value}</span>' +
+              '</div>' +
+              '</li>'
+            tooltip.customItems = items => {
+              items?.forEach(item => {
+                item.title = item.data.category
+                item.name = xAxis[0]?.name
 
-              let hasSubGroup = false
-
-              if (data && data.length > 0) {
-                title = data[0].data.category
-                key2 = data[0].data.group
-                subGroup = data[0].data.field
-                hasSubGroup = xAxisExt.length > 0
+                item.group = item.data.group
+                item.subGroupValue = item.data.field
+                item.subGroupName = xAxisExt?.[0]?.name
 
                 const fx = xAxis[0]
                 if (fx.formatterCfg) {
-                  v1 = valueFormatter(data[0].data.x, fx.formatterCfg)
+                  item.x = valueFormatter(item.data.x, fx.formatterCfg)
                 } else {
-                  v1 = valueFormatter(data[0].data.x, formatterItem)
+                  item.x = valueFormatter(item.data.x, formatterItem)
                 }
 
                 for (let i = 0; i < yAxis.length; i++) {
                   const f = yAxis[i]
-                  if (f.name === key2) {
+                  if (f.name === item.group) {
                     if (f.formatterCfg) {
-                      v2 = valueFormatter(data[0].data.value, f.formatterCfg)
+                      item.value = valueFormatter(item.data.value, f.formatterCfg)
                     } else {
-                      v2 = valueFormatter(data[0].data.value, formatterItem)
+                      item.value = valueFormatter(item.data.value, formatterItem)
                     }
                     break
                   }
                 }
-              }
-
-              return `
-                     <div>
-                       <div class="g2-tooltip-title">${title}</div>
-                       ` +
-                      (hasSubGroup
-                        ? `<div class="g2-tooltip-item">
-                                <span class="g2-tooltip-name">${xAxisExt[0].name}:</span><span class="g2-tooltip-value">${subGroup}</span>
-                            </div>` : ``) +
-                    `
-                       <div class="g2-tooltip-item">
-                           <span class="g2-tooltip-name">${key1}:</span><span class="g2-tooltip-value">${v1}</span>
-                       </div>
-                       <div class="g2-tooltip-item">
-                           <span class="g2-tooltip-name">${key2}:</span><span class="g2-tooltip-value">${v2}</span>
-                       </div>
-                       <div class="g2-tooltip-item">&nbsp;</div>
-                     </div>
-                    `
+              })
+              return items
             }
           }
         }
@@ -656,11 +668,16 @@ export function getXAxis(chart) {
           },
           spacing: 8
         } : null
+        const gridCfg = a.splitLine ? a.splitLine : DEFAULT_XAXIS_STYLE.splitLine
+        if (!gridCfg.dashStyle) {
+          gridCfg.dashStyle = DEFAULT_XAXIS_STYLE.splitLine.dashStyle
+        }
         const grid = a.splitLine.show ? {
           line: {
             style: {
               stroke: a.splitLine.lineStyle.color,
-              lineWidth: parseInt(a.splitLine.lineStyle.width)
+              lineWidth: parseInt(a.splitLine.lineStyle.width),
+              lineDash: gridCfg.enableDash ? [gridCfg.dashStyle.width, gridCfg.dashStyle.offset] : undefined
             }
           }
         } : null
@@ -697,13 +714,23 @@ export function getXAxis(chart) {
           }
         } : null
 
+        const position = transAxisPosition(chart, a)
+
         if (a.axisLabel.show && chart.type === 'bidirectional-bar') {
           label.rotate = 0
           label.style.textAlign = 'start'
         }
+        if (a.axisLabel.show && chart.type === 'bar-time-range') {
+          label.rotate = 0
+          if (position === 'top') {
+            label.style.textAlign = 'start'
+          } else {
+            label.style.textAlign = 'end'
+          }
+        }
 
         axis = {
-          position: transAxisPosition(chart, a),
+          position: position,
           title: title,
           grid: grid,
           label: label,
@@ -716,7 +743,7 @@ export function getXAxis(chart) {
         delete axis.maxLimit
         delete axis.tickCount
         const axisValue = a.axisValue
-        if (chart.type.includes('horizontal')) {
+        if (chart.type.includes('horizontal') || chart.type === 'bar-time-range') {
           if (axisValue && !axisValue.auto) {
             const yAxisSeriesMaxList = []
             const maxList = []
@@ -771,11 +798,16 @@ export function getYAxis(chart) {
           },
           spacing: 8
         } : null
+        const gridCfg = a.splitLine ? a.splitLine : DEFAULT_YAXIS_STYLE.splitLine
+        if (!gridCfg.dashStyle) {
+          gridCfg.dashStyle = DEFAULT_YAXIS_STYLE.splitLine.dashStyle
+        }
         const grid = a.splitLine.show ? {
           line: {
             style: {
               stroke: a.splitLine.lineStyle.color,
-              lineWidth: parseInt(a.splitLine.lineStyle.width)
+              lineWidth: parseInt(a.splitLine.lineStyle.width),
+              lineDash: gridCfg.enableDash ? [gridCfg.dashStyle.width, gridCfg.dashStyle.offset] : undefined
             }
           }
         } : null
@@ -801,7 +833,7 @@ export function getYAxis(chart) {
             if (chart.type === 'waterfall') {
               return value
             } else {
-              if (!chart.type.includes('horizontal')) {
+              if (!(chart.type.includes('horizontal') || chart.type === 'bar-time-range')) {
                 if (!a.axisLabelFormatter) {
                   return valueFormatter(value, formatterItem)
                 } else {
@@ -828,7 +860,7 @@ export function getYAxis(chart) {
         delete axis.maxLimit
         delete axis.tickCount
         const axisValue = a.axisValue
-        if (!chart.type.includes('horizontal')) {
+        if (!chart.type.includes('horizontal') || chart.type === 'bar-time-range') {
           if (axisValue && !axisValue.auto) {
             const yAxisSeriesMaxList = []
             const maxList = []
@@ -883,11 +915,16 @@ export function getYAxisExt(chart) {
           },
           spacing: 8
         } : null
+        const gridCfg = a.splitLine ? a.splitLine : DEFAULT_YAXIS_EXT_STYLE.splitLine
+        if (!gridCfg.dashStyle) {
+          gridCfg.dashStyle = DEFAULT_YAXIS_EXT_STYLE.splitLine.dashStyle
+        }
         const grid = a.splitLine.show ? {
           line: {
             style: {
               stroke: a.splitLine.lineStyle.color,
-              lineWidth: parseInt(a.splitLine.lineStyle.width)
+              lineWidth: parseInt(a.splitLine.lineStyle.width),
+              lineDash: gridCfg.enableDash ? [gridCfg.dashStyle.width, gridCfg.dashStyle.offset] : undefined
             }
           }
         } : null
@@ -1019,7 +1056,7 @@ export function getSlider(chart) {
 export function getAnalyse(chart) {
   let senior = {}
   const assistLine = []
-  if (chart.senior && chart.type && (chart.type.includes('bar') || chart.type.includes('line') || chart.type.includes('mix') || chart.type.includes('area'))) {
+  if (chart.senior && chart.type && (chart.type.includes('bar') || chart.type.includes('line') || chart.type.includes('mix') || chart.type.includes('area') || chart.type.includes('scatter'))) {
     senior = JSON.parse(chart.senior)
     if (senior.assistLine && senior.assistLine.length > 0) {
       const customStyle = JSON.parse(chart.customStyle)
@@ -1044,44 +1081,46 @@ export function getAnalyse(chart) {
       const lines = fixedLines.concat(dynamicLines)
 
       lines.forEach(ele => {
-        const value = parseFloat(ele.value)
-        const content = ele.name + ' : ' + valueFormatter(value, axisFormatterCfg)
-        assistLine.push({
-          type: 'line',
-          start: ['start', value],
-          end: ['end', value],
-          style: {
-            stroke: ele.color,
-            lineDash: getLineDash(ele.lineType)
+        if (ele) {
+          const value = parseFloat(ele.value)
+          const content = ele.name + ' : ' + valueFormatter(value, axisFormatterCfg)
+          assistLine.push({
+            type: 'line',
+            start: ['start', value],
+            end: ['end', value],
+            style: {
+              stroke: ele.color,
+              lineDash: getLineDash(ele.lineType)
+            }
+          })
+          if (!chart.type.includes('horizontal')) {
+            assistLine.push({
+              type: 'text',
+              position: [yAxisPosition === 'left' ? 'start' : 'end', value],
+              content: content,
+              offsetY: -2,
+              offsetX: yAxisPosition === 'left' ? 2 : -10 * (content.length - 2),
+              style: {
+                textBaseline: 'bottom',
+                fill: ele.color,
+                fontSize: ele.fontSize ? parseInt(ele.fontSize) : 10
+              }
+            })
+          } else {
+            assistLine.push({
+              type: 'text',
+              position: [xAxisPosition === 'left' ? 'start' : 'end', value],
+              content: content,
+              offsetY: xAxisPosition === 'left' ? -2 : -10 * (content.length - 2),
+              offsetX: 2,
+              rotate: Math.PI / 2,
+              style: {
+                textBaseline: 'bottom',
+                fill: ele.color,
+                fontSize: ele.fontSize ? parseInt(ele.fontSize) : 10
+              }
+            })
           }
-        })
-        if (!chart.type.includes('horizontal')) {
-          assistLine.push({
-            type: 'text',
-            position: [yAxisPosition === 'left' ? 'start' : 'end', value],
-            content: content,
-            offsetY: -2,
-            offsetX: yAxisPosition === 'left' ? 2 : -10 * (content.length - 2),
-            style: {
-              textBaseline: 'bottom',
-              fill: ele.color,
-              fontSize: ele.fontSize ? parseInt(ele.fontSize) : 10
-            }
-          })
-        } else {
-          assistLine.push({
-            type: 'text',
-            position: [xAxisPosition === 'left' ? 'start' : 'end', value],
-            content: content,
-            offsetY: xAxisPosition === 'left' ? -2 : -10 * (content.length - 2),
-            offsetX: 2,
-            rotate: Math.PI / 2,
-            style: {
-              textBaseline: 'bottom',
-              fill: ele.color,
-              fontSize: ele.fontSize ? parseInt(ele.fontSize) : 10
-            }
-          })
         }
       })
     }
@@ -1124,3 +1163,75 @@ export function getMeta(chart) {
   }
   return meta
 }
+export function getTooltipContainer(id) {
+  const curDom = document.getElementById(id)
+  if (curDom) {
+    curDom.remove()
+  }
+  const g2Tooltip = document.createElement('div')
+  g2Tooltip.setAttribute('id', id)
+  g2Tooltip.classList.add('g2-tooltip')
+
+  const g2TooltipTitle = document.createElement('div')
+  g2TooltipTitle.classList.add('g2-tooltip-title')
+  g2Tooltip.appendChild(g2TooltipTitle)
+
+  const g2TooltipList = document.createElement('ul')
+  g2TooltipList.classList.add('g2-tooltip-list')
+  g2Tooltip.appendChild(g2TooltipList)
+  const full = document.getElementsByClassName('fullscreen')
+  if (full.length) {
+    full.item(0).appendChild(g2Tooltip)
+  } else {
+    document.body.appendChild(g2Tooltip)
+  }
+  return g2Tooltip
+}
+export function configPlotTooltipEvent(chart, plot) {
+  const customAttr = JSON.parse(chart.customAttr)
+  const t = JSON.parse(JSON.stringify(customAttr.tooltip))
+  if (!t.show) {
+    return
+  }
+  // 手动处理 tooltip 的显示和隐藏事件，需配合源码理解
+  // https://github.com/antvis/G2/blob/master/src/chart/controller/tooltip.ts#showTooltip
+  plot.on('tooltip:show', () => {
+    const tooltipCtl = plot.chart.getController('tooltip')
+    if (!tooltipCtl) {
+      return
+    }
+    if (tooltipCtl.tooltip) {
+      // 处理视图放大后再关闭 tooltip 的 dom 被清除
+      const container = tooltipCtl.tooltip.cfg.container
+      const dom = document.getElementById(container.id)
+      if (!dom) {
+        const full = document.getElementsByClassName('fullscreen')
+        if (full.length) {
+          full.item(0).appendChild(container)
+        } else {
+          document.body.appendChild(container)
+        }
+      }
+    }
+    const event = plot.chart.interactions.tooltip?.context?.event
+    plot.chart.getOptions().tooltip.follow = false
+    tooltipCtl.title = Math.random().toString()
+    plot.chart.getTheme().components.tooltip.x = event.clientX
+    plot.chart.getTheme().components.tooltip.y = event.clientY
+  })
+  // https://github.com/antvis/G2/blob/master/src/chart/controller/tooltip.ts#hideTooltip
+  plot.on('plot:mouseleave', () => {
+    const tooltipCtl = plot.chart.getController('tooltip')
+    if (!tooltipCtl) {
+      return
+    }
+    plot.chart.getOptions().tooltip.follow = true
+    tooltipCtl.hideTooltip()
+  })
+}
+
+export const TOOLTIP_TPL = '<li class="g2-tooltip-list-item" data-index={index}>' +
+                                    '<span class="g2-tooltip-marker" style="background:{color}"></span>' +
+                                    '<span class="g2-tooltip-name">{name}</span>:' +
+                                    '<span class="g2-tooltip-value">{value}</span>' +
+                                  '</li>'

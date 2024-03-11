@@ -1,7 +1,6 @@
 package io.dataease.plugins.server;
 
 
-import cn.hutool.core.collection.CollectionUtil;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import io.dataease.auth.annotation.DeLog;
@@ -12,7 +11,6 @@ import io.dataease.commons.constants.AuthConstants;
 import io.dataease.commons.constants.DePermissionType;
 import io.dataease.commons.constants.ResourceAuthLevel;
 import io.dataease.commons.constants.SysLogConstants;
-import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.BeanUtils;
 import io.dataease.commons.utils.DeLogUtils;
 import io.dataease.commons.utils.PageUtils;
@@ -20,6 +18,7 @@ import io.dataease.commons.utils.Pager;
 import io.dataease.controller.sys.response.DeptNodeResponse;
 import io.dataease.dto.SysLogDTO;
 import io.dataease.listener.util.CacheUtils;
+import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.plugins.common.util.SpringContextUtil;
 import io.dataease.plugins.xpack.dept.dto.request.*;
 import io.dataease.plugins.xpack.dept.dto.response.DeptUserItemDTO;
@@ -30,6 +29,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -190,8 +190,8 @@ public class XDeptServer {
     @PostMapping("/unBindUser")
     public void unBindUser(@RequestBody XpackDeptBindRequest request) {
         DeptXpackService deptService = SpringContextUtil.getBean(DeptXpackService.class);
-        if (CollectionUtil.isEmpty(request.getUserIds())) {
-            DEException.throwException("userIds can not be empty");
+        if (CollectionUtils.isEmpty(request.getUserIds())) {
+            DataEaseException.throwException("userIds can not be empty");
         }
         request.getUserIds().forEach(userId -> {
             SysLogDTO sysLogDTO = DeLogUtils.buildBindRoleUserLog(request.getDeptId(), userId, SysLogConstants.OPERATE_TYPE.UNBIND, SysLogConstants.SOURCE_TYPE.DEPT);

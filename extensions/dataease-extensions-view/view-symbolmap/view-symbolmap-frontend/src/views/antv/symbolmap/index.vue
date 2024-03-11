@@ -307,9 +307,6 @@ export default {
             this.addGlobalImage()
 
             this.drawView()
-            this.myChart.on('click', ev => {
-              this.$emit('trigger-edit-click', ev.originEvent)
-            })
           })
         } else {
           this.loading = false
@@ -456,7 +453,16 @@ export default {
               c.colors.forEach(ele => {
                 colors.push(hexColorToRGBA(ele, c.alpha))
               })
-              this.pointLayer.color(colors[0])
+              const colorAxis = JSON.parse(chart.xaxisExt)
+              if (colorAxis && colorAxis.length) {
+                this.pointLayer
+                  .scale('color', {
+                    type: 'cat'
+                  })
+                  .color('color', colors)
+              } else {
+                this.pointLayer.color(colors[0])
+              }
             }
             const yaxis = JSON.parse(chart.yaxis)
             const hasYaxis =  yaxis && yaxis.length
@@ -550,14 +556,17 @@ export default {
       },
 
       getMapTheme(chart) {
-        let theme = 'light'
+        let theme = 'normal'
         if (chart.customStyle) {
             const customStyle = JSON.parse(chart.customStyle)
             if (customStyle.baseMapStyle && customStyle.baseMapStyle.baseMapTheme) {
                 theme = customStyle.baseMapStyle.baseMapTheme
             }
         }
-        return theme
+        if (theme === 'light') {
+          theme = 'normal'
+        }
+        return `amap://styles/${theme}`
       },
 
 

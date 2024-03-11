@@ -15,7 +15,7 @@
       </el-col>
     </el-header>
     <de-container>
-      <de-aside-container class="ms-aside-container">
+      <de-aside-container close class="ms-aside-container">
         <div
           v-show="showAside"
           style="width: 60px; left: 0px; top: 0px; bottom: 0px;  position: absolute"
@@ -888,7 +888,7 @@ export default {
   methods: {
     handleLoad() {
       this.mobileLoading = false
-      this.mobileStatusChange('openMobileLayout', { componentData: this.componentData, panelInfo: this.panelInfo })
+      this.mobileStatusChange('openMobileLayout', { componentData: this.componentData, panelInfo: this.panelInfo, canvasStyleData: this.canvasStyleData })
     },
     deleteComponentWithId(id) {
       for (let index = 0; index < this.pcComponentData.length; index++) {
@@ -1269,6 +1269,7 @@ export default {
       this.$store.commit('recordSnapshot', 'sureFilter')
       this.$store.commit('setCurComponent', { component: this.currentFilterCom, index: this.curComponentIndex })
       this.$store.commit('setComponentFromList', this.currentFilterCom)
+      this.$store.commit('delLastValidFilterWithId', this.currentFilterCom.id)
       bus.$emit('reset-default-value', this.currentFilterCom)
       this.closeFilter()
     },

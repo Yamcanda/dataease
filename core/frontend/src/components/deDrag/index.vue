@@ -116,6 +116,7 @@ import EditBar from '@/components/canvas/components/editor/EditBar'
 import MobileCheckBar from '@/components/canvas/components/editor/MobileCheckBar'
 import { hexColorToRGBA } from '@/views/chart/chart/util'
 import { imgUrlTrans } from '@/components/canvas/utils/utils'
+import bus from '@/utils/bus'
 
 let eventsFor = events.mouse
 
@@ -717,6 +718,7 @@ export default {
     active(val) {
       this.enabled = val
       if (val) {
+        bus.$emit('select-pop-change', this.element.id)
         this.$emit('activated')
       } else {
         this.$emit('deactivated')
@@ -1536,6 +1538,7 @@ export default {
         // Tab内部的画布ID 为 tab组件id + '-' + tabActiveName
         const targetCanvasId = this.tabMoveInActiveId + '-' + this.tabActiveTabNameMap[this.tabMoveInActiveId]
         const targetCanvasScale = this.curCanvasScaleMap[targetCanvasId]
+        const targetMainCanvasScale = this.curCanvasScaleMap['canvas-main']
         if (this.element.auxiliaryMatrix) {
           this.element.x = 1
           this.element.y = 108
@@ -1546,8 +1549,12 @@ export default {
           this.element.style.left = 0
           this.element.style.top = (this.element.y - 1) * targetCanvasScale.matrixStyleOriginHeight
         } else {
-          this.element.style.left = 0
-          this.element.style.top = 0
+          this.element.style.left = 10
+          this.element.style.top = 10
+          const newWidth = this.element.style.width * targetMainCanvasScale.scalePointWidth / targetCanvasScale.scalePointWidth
+          const checkWidth = this.canvasStyleData.width - 30
+          this.element.style.width = newWidth < checkWidth ? newWidth : checkWidth
+          this.element.style.height = this.element.style.height * targetMainCanvasScale.scalePointHeight / targetCanvasScale.scalePointHeight
         }
         this.element.canvasId = targetCanvasId
       }
@@ -2167,7 +2174,6 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 2;
   width: 100% !important;
   height: 100% !important;
 }

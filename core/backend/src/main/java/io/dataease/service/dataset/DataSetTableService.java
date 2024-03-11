@@ -8,6 +8,7 @@ import com.alibaba.excel.metadata.CellData;
 import com.alibaba.excel.read.metadata.ReadSheet;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
+import com.alibaba.fastjson.parser.Feature;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -16,7 +17,6 @@ import com.google.gson.reflect.TypeToken;
 import io.dataease.auth.annotation.DeCleaner;
 import io.dataease.auth.api.dto.CurrentUserDto;
 import io.dataease.commons.constants.*;
-import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.*;
 import io.dataease.controller.ResultHolder;
 import io.dataease.controller.dataset.request.DataSetTaskInstanceGridRequest;
@@ -27,10 +27,12 @@ import io.dataease.controller.request.dataset.DataSetTaskRequest;
 import io.dataease.controller.response.DataSetDetail;
 import io.dataease.dto.SysLogDTO;
 import io.dataease.dto.dataset.*;
-import io.dataease.dto.dataset.union.UnionDTO;
-import io.dataease.dto.dataset.union.UnionItemDTO;
-import io.dataease.dto.dataset.union.UnionParamDTO;
-import io.dataease.exception.DataEaseException;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoCustomUnion;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoDTO;
+import io.dataease.plugins.common.dto.dataset.ExcelSheetData;
+import io.dataease.plugins.common.dto.dataset.union.UnionDTO;
+import io.dataease.plugins.common.dto.dataset.union.UnionItemDTO;
+import io.dataease.plugins.common.dto.dataset.union.UnionParamDTO;
 import io.dataease.ext.ExtDataSetGroupMapper;
 import io.dataease.ext.ExtDataSetTableMapper;
 import io.dataease.ext.UtilMapper;
@@ -44,6 +46,7 @@ import io.dataease.plugins.common.constants.DeTypeConstants;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
 import io.dataease.plugins.common.dto.datasource.DataSourceType;
 import io.dataease.plugins.common.dto.datasource.TableField;
+import io.dataease.plugins.common.exception.DataEaseException;
 import io.dataease.plugins.common.request.datasource.DatasourceRequest;
 import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDTO;
 import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeObj;
@@ -51,8 +54,8 @@ import io.dataease.plugins.common.util.ClassloaderResponsity;
 import io.dataease.plugins.datasource.provider.Provider;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.xpack.auth.dto.request.ColumnPermissionItem;
-import io.dataease.provider.DDLProvider;
-import io.dataease.provider.ProviderFactory;
+import io.dataease.plugins.datasource.provider.DDLProvider;
+import io.dataease.plugins.datasource.provider.ProviderFactory;
 import io.dataease.provider.datasource.JdbcProvider;
 import io.dataease.provider.query.SQLUtils;
 import io.dataease.service.chart.util.ChartDataBuild;
@@ -71,6 +74,7 @@ import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.*;
 import net.sf.jsqlparser.util.deparser.ExpressionDeParser;
+import net.sf.jsqlparser.util.deparser.SelectDeParser;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -180,9 +184,27 @@ public class DataSetTableService {
         return list;
     }
 
+    public void saveKey(DatasetTable datasetTable, DatasetTableFieldDTO datasetTableField) {
+        DataTableInfoDTO dt = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class);
+        if (datasetTableField.isKey()) {
+            dt.getKeys().add(datasetTableField.getOriginName());
+        } else {
+            dt.getKeys().remove(datasetTableField.getOriginName());
+        }
+        if (CollectionUtils.isNotEmpty(dt.getKeys())) {
+            dt.setSetKey(true);
+        } else {
+            dt.setSetKey(false);
+        }
+        DatasetTable record = new DatasetTable();
+        record.setInfo(new Gson().toJson(dt));
+        DatasetTableExample example = new DatasetTableExample();
+        example.createCriteria().andIdEqualTo(datasetTable.getId());
+        datasetTableMapper.updateByExampleSelective(record, example);
+    }
+
     private void extractData(DataSetTableRequest datasetTable) throws Exception {
-        if (datasetTable.getMode() == 1 && StringUtils.isNotEmpty(datasetTable.getSyncType())
-                && datasetTable.getSyncType().equalsIgnoreCase("sync_now")) {
+        if (datasetTable.getMode() == 1 && StringUtils.isNotEmpty(datasetTable.getSyncType()) && datasetTable.getSyncType().equalsIgnoreCase("sync_now")) {
             DataSetTaskRequest dataSetTaskRequest = new DataSetTaskRequest();
             DatasetTableTask datasetTableTask = new DatasetTableTask();
             datasetTableTask.setTableId(datasetTable.getId());
@@ -205,8 +227,7 @@ public class DataSetTableService {
         if (StringUtils.isEmpty(datasetTable.getId())) {
             List<DatasetTable> list = new ArrayList<>();
             if (datasetTable.isMergeSheet()) {
-                Map<String, List<ExcelSheetData>> map = datasetTable.getSheets().stream()
-                        .collect(Collectors.groupingBy(ExcelSheetData::getFieldsMd5));
+                Map<String, List<ExcelSheetData>> map = datasetTable.getSheets().stream().collect(Collectors.groupingBy(ExcelSheetData::getFieldsMd5));
                 for (String s : map.keySet()) {
                     DataSetTableRequest sheetTable = new DataSetTableRequest();
                     BeanUtils.copyBean(sheetTable, datasetTable);
@@ -217,8 +238,7 @@ public class DataSetTableService {
                     sheetTable.setName(excelSheetDataList.get(0).getDatasetName());
                     checkName(sheetTable);
                     excelSheetDataList.forEach(excelSheetData -> {
-                        String[] fieldArray = excelSheetData.getFields().stream().map(TableField::getFieldName)
-                                .toArray(String[]::new);
+                        String[] fieldArray = excelSheetData.getFields().stream().map(TableField::getFieldName).toArray(String[]::new);
                         checkIsRepeat(fieldArray);
                         excelSheetData.setData(null);
                         excelSheetData.setJsonArray(null);
@@ -238,6 +258,8 @@ public class DataSetTableService {
                     });
                     DataTableInfoDTO info = new DataTableInfoDTO();
                     info.setExcelSheetDataList(excelSheetDataList);
+                    info.setKeys(excelSheetDataList.get(0).getKeys());
+                    info.setSetKey(excelSheetDataList.get(0).isSetKey());
                     sheetTable.setInfo(new Gson().toJson(info));
                     datasetTableMapper.insert(sheetTable);
                     sysAuthService.copyAuth(sheetTable.getId(), SysAuthConstants.AUTH_SOURCE_TYPE_DATASET);
@@ -246,13 +268,10 @@ public class DataSetTableService {
                     list.add(sheetTable);
                     DeLogUtils.save(SysLogConstants.OPERATE_TYPE.CREATE, SysLogConstants.SOURCE_TYPE.DATASET, datasetTable.getId(), datasetTable.getSceneId(), null, null);
                 }
-                datasetIdList.forEach(datasetId -> commonThreadPool.addTask(() ->
-                        extractDataService.extractExcelData(datasetId, "all_scope", "初始导入",
-                                null, datasetIdList)));
+                datasetIdList.forEach(datasetId -> commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetId, "all_scope", "初始导入", null, datasetIdList)));
             } else {
                 for (ExcelSheetData sheet : datasetTable.getSheets()) {
-                    String[] fieldArray = sheet.getFields().stream().map(TableField::getFieldName)
-                            .toArray(String[]::new);
+                    String[] fieldArray = sheet.getFields().stream().map(TableField::getFieldName).toArray(String[]::new);
                     checkIsRepeat(fieldArray);
                 }
 
@@ -270,6 +289,8 @@ public class DataSetTableService {
                     excelSheetDataList.add(sheet);
                     DataTableInfoDTO info = new DataTableInfoDTO();
                     info.setExcelSheetDataList(excelSheetDataList);
+                    info.setKeys(sheet.getKeys());
+                    info.setSetKey(sheet.isSetKey());
                     sheetTable.setInfo(new Gson().toJson(info));
                     datasetTableMapper.insert(sheetTable);
                     sysAuthService.copyAuth(sheetTable.getId(), SysAuthConstants.AUTH_SOURCE_TYPE_DATASET);
@@ -278,22 +299,18 @@ public class DataSetTableService {
                     list.add(sheetTable);
                     DeLogUtils.save(SysLogConstants.OPERATE_TYPE.MODIFY, SysLogConstants.SOURCE_TYPE.DATASET, datasetTable.getId(), datasetTable.getSceneId(), null, null);
                 }
-                datasetIdList.forEach(datasetId -> commonThreadPool.addTask(() ->
-                        extractDataService.extractExcelData(datasetId, "all_scope", "初始导入",
-                                null, datasetIdList)));
+                datasetIdList.forEach(datasetId -> commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetId, "all_scope", "初始导入", null, datasetIdList)));
             }
 
             return list;
         }
 
         List<ExcelSheetData> excelSheetDataList = new ArrayList<>();
-        List<String> oldFields = datasetTable.getSheets().get(0).getFields().stream().map(TableField::getRemarks)
-                .collect(Collectors.toList());
+        List<String> oldFields = datasetTable.getSheets().get(0).getFields().stream().map(TableField::getRemarks).collect(Collectors.toList());
         for (ExcelSheetData sheet : datasetTable.getSheets()) {
             // 替换时，
             if (datasetTable.getEditType() == 0) {
-                List<String> newFields = sheet.getFields().stream().map(TableField::getRemarks)
-                        .collect(Collectors.toList());
+                List<String> newFields = sheet.getFields().stream().map(TableField::getRemarks).collect(Collectors.toList());
                 if (!oldFields.equals(newFields)) {
                     DataEaseException.throwException(Translator.get("i18n_excel_column_inconsistent"));
                 }
@@ -307,17 +324,16 @@ public class DataSetTableService {
             excelSheetDataList.add(sheet);
         }
         DataTableInfoDTO info = new DataTableInfoDTO();
+        info.setKeys(datasetTable.getSheets().get(0).getKeys());
+        info.setSetKey(datasetTable.getSheets().get(0).isSetKey());
         info.setExcelSheetDataList(excelSheetDataList);
         datasetTable.setInfo(new Gson().toJson(info));
         datasetTableMapper.updateByPrimaryKeySelective(datasetTable);
         // 替換時，先不刪除旧字段；同步成功后再删除
         if (datasetTable.getEditType() == 0) {
-            commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetTable.getId(), "all_scope", "替换",
-                    saveExcelTableField(datasetTable.getId(), datasetTable.getSheets().get(0).getFields(), false),
-                    Collections.singletonList(datasetTable.getId())));
+            commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetTable.getId(), "all_scope", "替换", saveExcelTableField(datasetTable.getId(), datasetTable.getSheets().get(0).getFields(), false), Collections.singletonList(datasetTable.getId())));
         } else if (datasetTable.getEditType() == 1) {
-            commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetTable.getId(), "add_scope", "追加",
-                    null, Collections.singletonList(datasetTable.getId())));
+            commonThreadPool.addTask(() -> extractDataService.extractExcelData(datasetTable.getId(), "add_scope", "追加", null, Collections.singletonList(datasetTable.getId())));
         }
         DeLogUtils.save(SysLogConstants.OPERATE_TYPE.MODIFY, SysLogConstants.SOURCE_TYPE.DATASET, datasetTable.getId(), datasetTable.getSceneId(), null, null);
         return Collections.singletonList(datasetTable);
@@ -355,9 +371,7 @@ public class DataSetTableService {
             if (datasetTable.getIsRename() == null || !datasetTable.getIsRename()) {
                 // 更新数据和字段
                 if (update == 1) {
-                    if (StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.SQL.name())
-                            || StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.CUSTOM.name())
-                            || StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.UNION.name())) {
+                    if (StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.SQL.name()) || StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.CUSTOM.name()) || StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.UNION.name())) {
                         saveTableField(datasetTable);
                     }
                     extractData(datasetTable);
@@ -400,8 +414,7 @@ public class DataSetTableService {
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDatasource(dorisDatasource);
         DDLProvider ddlProvider = ProviderFactory.getDDLProvider(dorisDatasource.getType());
-        if (StringUtils.equalsIgnoreCase(DatasetType.CUSTOM.name(), table.getType())
-                || StringUtils.equalsIgnoreCase(DatasetType.UNION.name(), table.getType())) {
+        if (StringUtils.equalsIgnoreCase(DatasetType.CUSTOM.name(), table.getType()) || StringUtils.equalsIgnoreCase(DatasetType.UNION.name(), table.getType())) {
             datasourceRequest.setQuery(ddlProvider.dropView(dorisTableName));
             jdbcProvider.exec(datasourceRequest);
             datasourceRequest.setQuery(ddlProvider.dropView(TableUtils.tmpName(dorisTableName)));
@@ -543,19 +556,7 @@ public class DataSetTableService {
             }
         });
         // quota add count
-        DatasetTableField count = DatasetTableField.builder()
-                .id("count")
-                .tableId(dataSetTableRequest.getId())
-                .originName("*")
-                .name(Translator.get("i18n_chart_count"))
-                .dataeaseName("*")
-                .type("INT")
-                .checked(true)
-                .columnIndex(999)
-                .deType(2)
-                .extField(1)
-                .groupType("q")
-                .build();
+        DatasetTableField count = DatasetTableField.builder().id("count").tableId(dataSetTableRequest.getId()).originName("*").name(Translator.get("i18n_chart_count")).dataeaseName("*").type("INT").checked(true).columnIndex(999).deType(2).extField(1).groupType("q").build();
         quota.add(count);
 
         Map<String, List<DatasetTableField>> map = new HashMap<>();
@@ -565,12 +566,10 @@ public class DataSetTableService {
         return map;
     }
 
-    public Map<String, Object> getPreviewData(DataSetTableRequest dataSetTableRequest, Integer page, Integer pageSize,
-                                              List<DatasetTableField> extFields, DatasetRowPermissionsTreeObj extTree) throws Exception {
+    public Map<String, Object> getPreviewData(DataSetTableRequest dataSetTableRequest, Integer page, Integer pageSize, List<DatasetTableField> extFields, DatasetRowPermissionsTreeObj extTree) throws Exception {
         Map<String, Object> map = new HashMap<>();
         String syncStatus = "";
-        DatasetTableField datasetTableField = DatasetTableField.builder().tableId(dataSetTableRequest.getId())
-                .checked(Boolean.TRUE).build();
+        DatasetTableField datasetTableField = DatasetTableField.builder().tableId(dataSetTableRequest.getId()).checked(Boolean.TRUE).build();
         List<DatasetTableField> fields = dataSetTableFieldsService.list(datasetTableField);
         if (CollectionUtils.isNotEmpty(extFields)) {
             fields = extFields;
@@ -609,9 +608,7 @@ public class DataSetTableService {
         dataSetPreviewPage.setShow(Integer.valueOf(dataSetTableRequest.getRow()));
         dataSetPreviewPage.setPage(page);
         dataSetPreviewPage.setPageSize(pageSize);
-        int realSize = Integer.parseInt(dataSetTableRequest.getRow()) < pageSize
-                ? Integer.parseInt(dataSetTableRequest.getRow())
-                : pageSize;
+        int realSize = Integer.parseInt(dataSetTableRequest.getRow()) < pageSize ? Integer.parseInt(dataSetTableRequest.getRow()) : pageSize;
         if (page == Integer.parseInt(dataSetTableRequest.getRow()) / pageSize + 1) {
             realSize = Integer.parseInt(dataSetTableRequest.getRow()) % pageSize;
         }
@@ -630,8 +627,7 @@ public class DataSetTableService {
                 String table = dataTableInfoDTO.getTable();
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
 
-                datasourceRequest.setQuery(
-                        qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
 
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 datasourceRequest.setPage(page);
@@ -644,17 +640,16 @@ public class DataSetTableService {
                     data.addAll(datasourceProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
 
                 try {
-                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                     datasourceRequest.setPageable(false);
                     dataSetPreviewPage.setTotal(datasourceProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             } else {
                 // check doris table
@@ -674,22 +669,20 @@ public class DataSetTableService {
                 datasourceRequest.setDatasource(ds);
                 String table = TableUtils.tableName(dataSetTableRequest.getId());
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 try {
                     data.addAll(jdbcProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 try {
-                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(jdbcProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             }
 
@@ -709,8 +702,7 @@ public class DataSetTableService {
                 String sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
                 sql = handleVariableDefaultValue(sql, datasetTable.getSqlVariableDetails(), ds.getType(), false);
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 datasourceRequest.setPage(page);
                 datasourceRequest.setFetchSize(Integer.parseInt(dataSetTableRequest.getRow()));
@@ -723,16 +715,15 @@ public class DataSetTableService {
                     data.addAll(datasourceProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 try {
                     datasourceRequest.setPageable(false);
-                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(datasourceProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             } else {
                 // check doris table
@@ -745,22 +736,20 @@ public class DataSetTableService {
                 datasourceRequest.setDatasource(ds);
                 String table = TableUtils.tableName(dataSetTableRequest.getId());
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 try {
                     data.addAll(jdbcProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 try {
-                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(jdbcProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             }
         } else if (StringUtils.equalsIgnoreCase(datasetTable.getType(), "excel")) {
@@ -774,22 +763,20 @@ public class DataSetTableService {
             datasourceRequest.setDatasource(ds);
             String table = TableUtils.tableName(dataSetTableRequest.getId());
             QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-            datasourceRequest.setQuery(
-                    qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+            datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
             map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
             try {
                 data.addAll(jdbcProvider.getData(datasourceRequest));
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
             }
             try {
-                datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                        Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                 dataSetPreviewPage.setTotal(jdbcProvider.getData(datasourceRequest).size());
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
             }
             DataSetTaskInstanceGridRequest request = new DataSetTaskInstanceGridRequest();
             request.setTableId(List.of(dataSetTableRequest.getId()));
@@ -811,19 +798,17 @@ public class DataSetTableService {
                 datasourceRequest.setDatasource(ds);
 
                 DataTableInfoDTO dt = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class);
-                List<DataSetTableUnionDTO> list = dataSetTableUnionService
-                        .listByTableId(dt.getList().get(0).getTableId());
+                List<DataSetTableUnionDTO> list = dataSetTableUnionService.listByTableId(dt.getList().get(0).getTableId());
 
                 String sql = "";
                 try {
                     sql = getCustomSQLDatasource(dt, list, ds);
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 datasourceRequest.setPage(page);
                 datasourceRequest.setFetchSize(Integer.parseInt(dataSetTableRequest.getRow()));
@@ -835,16 +820,15 @@ public class DataSetTableService {
                     data.addAll(datasourceProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 try {
                     datasourceRequest.setPageable(false);
-                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(datasourceProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             } else {
                 Datasource ds = engineService.getDeEngine();
@@ -853,30 +837,28 @@ public class DataSetTableService {
                 datasourceRequest.setDatasource(ds);
                 String table = TableUtils.tableName(dataSetTableRequest.getId());
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 try {
                     data.addAll(jdbcProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
 
                 try {
-                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(jdbcProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             }
         } else if (StringUtils.equalsIgnoreCase(datasetTable.getType(), "union")) {
             if (datasetTable.getMode() == 0) {
                 Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
                 if (ObjectUtils.isEmpty(ds)) {
-                    DEException.throwException(Translator.get("i18n_datasource_delete"));
+                    DataEaseException.throwException(Translator.get("i18n_datasource_delete"));
                 }
                 Provider datasourceProvider = ProviderFactory.getProvider(ds.getType());
                 DatasourceRequest datasourceRequest = new DatasourceRequest();
@@ -889,11 +871,10 @@ public class DataSetTableService {
                     sql = (String) getUnionSQLDatasource(dt, ds).get("sql");
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQuerySQLWithPage(sql, fields, page, pageSize, realSize, false, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 datasourceRequest.setPage(page);
                 datasourceRequest.setFetchSize(Integer.parseInt(dataSetTableRequest.getRow()));
@@ -905,16 +886,15 @@ public class DataSetTableService {
                     data.addAll(datasourceProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
                 try {
                     datasourceRequest.setPageable(false);
-                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQuerySqlWithLimit(sql, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(datasourceProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             } else {
                 Datasource ds = engineService.getDeEngine();
@@ -923,23 +903,21 @@ public class DataSetTableService {
                 datasourceRequest.setDatasource(ds);
                 String table = TableUtils.tableName(dataSetTableRequest.getId());
                 QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
-                datasourceRequest.setQuery(
-                        qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
+                datasourceRequest.setQuery(qp.createQueryTableWithPage(table, fields, page, pageSize, realSize, false, ds, null, rowPermissionsTree));
                 map.put("sql", java.util.Base64.getEncoder().encodeToString(datasourceRequest.getQuery().getBytes()));
                 try {
                     data.addAll(jdbcProvider.getData(datasourceRequest));
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
 
                 try {
-                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields,
-                            Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
+                    datasourceRequest.setQuery(qp.createQueryTableWithLimit(table, fields, Integer.valueOf(dataSetTableRequest.getRow()), false, ds, null, rowPermissionsTree));
                     dataSetPreviewPage.setTotal(jdbcProvider.getData(datasourceRequest).size());
                 } catch (Exception e) {
                     logger.error(e.getMessage());
-                    DEException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
+                    DataEaseException.throwException(Translator.get("i18n_ds_error") + "->" + e.getMessage());
                 }
             }
         }
@@ -1067,8 +1045,7 @@ public class DataSetTableService {
                         break;
                     }
                 }
-                if (!isEdit && defaultsSqlVariableDetail != null && defaultsSqlVariableDetail.getDefaultValueScope() != null &&
-                        defaultsSqlVariableDetail.getDefaultValueScope().equals(SqlVariableDetails.DefaultValueScope.ALLSCOPE) && StringUtils.isNotEmpty(defaultsSqlVariableDetail.getDefaultValue())) {
+                if (!isEdit && defaultsSqlVariableDetail != null && defaultsSqlVariableDetail.getDefaultValueScope() != null && defaultsSqlVariableDetail.getDefaultValueScope().equals(SqlVariableDetails.DefaultValueScope.ALLSCOPE) && StringUtils.isNotEmpty(defaultsSqlVariableDetail.getDefaultValue())) {
                     sql = sql.replace(matcher.group(), defaultsSqlVariableDetail.getDefaultValue());
                 }
                 if (isEdit && defaultsSqlVariableDetail != null && StringUtils.isNotEmpty(defaultsSqlVariableDetail.getDefaultValue())) {
@@ -1086,7 +1063,7 @@ public class DataSetTableService {
     }
 
     public String removeVariables(final String sql, String dsType) throws Exception {
-        String tmpSql = sql;
+        String tmpSql = sql.replaceAll("(?m)^\\s*$[\n\r]{0,}", "");
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(tmpSql);
         boolean hasVariables = false;
@@ -1116,18 +1093,24 @@ public class DataSetTableService {
         }
     }
 
+    private String handlePlainSelect(PlainSelect plainSelect, Select statementSelect, String dsType) throws Exception {
+        handleSelectItems(plainSelect, dsType);
+        handleFromItems(plainSelect, dsType);
+        handleJoins(plainSelect, dsType);
+        return handleWhere(plainSelect, statementSelect, dsType);
+    }
+
     private void handleSelectItems(PlainSelect plainSelect, String dsType) throws Exception {
-        List<SelectItem> selectItems = new ArrayList<>();
+        List<SelectItem<?>> selectItems = new ArrayList<>();
         for (SelectItem selectItem : plainSelect.getSelectItems()) {
             try {
-                SelectExpressionItem selectExpressionItem = (SelectExpressionItem) selectItem;
-                if (selectExpressionItem.getExpression() instanceof SubSelect) {
-                    SubSelect subSelect = (SubSelect) selectExpressionItem.getExpression();
-                    Select select = (Select) CCJSqlParserUtil.parse(removeVariables(subSelect.getSelectBody().toString(), dsType));
-                    subSelect.setSelectBody(select.getSelectBody());
-                    ((SelectExpressionItem) selectItem).setExpression(subSelect);
+                if (selectItem.getExpression() instanceof ParenthesedSelect) {
+                    ParenthesedSelect parenthesedSelect = (ParenthesedSelect) selectItem.getExpression();
+                    parenthesedSelect.setSelect((Select) CCJSqlParserUtil.parse(removeVariables(((Select) selectItem.getExpression()).getPlainSelect().toString(), dsType)));
+                    selectItem.setExpression(parenthesedSelect);
                 }
             } catch (Exception e) {
+                e.printStackTrace();
             }
             selectItems.add(selectItem);
         }
@@ -1136,22 +1119,32 @@ public class DataSetTableService {
 
     private void handleFromItems(PlainSelect plainSelect, String dsType) throws Exception {
         FromItem fromItem = plainSelect.getFromItem();
-        if (fromItem instanceof SubSelect) {
-            SelectBody selectBody = ((SubSelect) fromItem).getSelectBody();
-            SubSelect subSelect = new SubSelect();
-            Select subSelectTmp = (Select) CCJSqlParserUtil.parse(removeVariables(selectBody.toString(), dsType));
-            subSelect.setSelectBody(subSelectTmp.getSelectBody());
-            if (dsType.equals(DatasourceTypes.oracle.getType())) {
-                if (fromItem.getAlias() != null) {
-                    subSelect.setAlias(new Alias(fromItem.getAlias().toString(), false));
+        if (fromItem instanceof ParenthesedSelect) {
+            if (((ParenthesedSelect) fromItem).getSelect() instanceof SetOperationList) {
+                StringBuilder result = new StringBuilder();
+                SetOperationList setOperationList = (SetOperationList) ((ParenthesedSelect) fromItem).getSelect().getSelectBody();
+                for (int i = 0; i < setOperationList.getSelects().size(); i++) {
+                    result.append(handlePlainSelect((PlainSelect) setOperationList.getSelects().get(i), null, dsType));
+                    if (i < setOperationList.getSelects().size() - 1) {
+                        result.append(" ").append(setOperationList.getOperations().get(i).toString()).append(" ");
+                    }
                 }
             } else {
-                if (fromItem.getAlias() == null) {
-                    throw new Exception("Failed to parse sql, Every derived table must have its own alias！");
+                PlainSelect selectBody = ((ParenthesedSelect) fromItem).getSelect().getPlainSelect();
+                Select subSelectTmp = (Select) CCJSqlParserUtil.parse(removeVariables(selectBody.toString(), dsType));
+                ((ParenthesedSelect) fromItem).setSelect(subSelectTmp.getSelectBody());
+                if (dsType.equals(DatasourceTypes.oracle.getType())) {
+                    if (fromItem.getAlias() != null) {
+                        fromItem.setAlias(new Alias(fromItem.getAlias().toString(), false));
+                    }
+                } else {
+                    if (fromItem.getAlias() == null) {
+                        throw new Exception("Failed to parse sql, Every derived table must have its own alias！");
+                    }
+                    fromItem.setAlias(new Alias(fromItem.getAlias().toString(), false));
                 }
-                subSelect.setAlias(new Alias(fromItem.getAlias().toString(), false));
             }
-            plainSelect.setFromItem(subSelect);
+            plainSelect.setFromItem(fromItem);
         }
     }
 
@@ -1161,21 +1154,20 @@ public class DataSetTableService {
             List<Join> joinsList = new ArrayList<>();
             for (Join join : joins) {
                 FromItem rightItem = join.getRightItem();
-                if (rightItem instanceof SubSelect) {
-                    SelectBody selectBody = ((SubSelect) rightItem).getSelectBody();
-                    SubSelect subSelect = new SubSelect();
+                if (rightItem instanceof ParenthesedSelect) {
+                    PlainSelect selectBody = ((ParenthesedSelect) rightItem).getPlainSelect();
                     Select subSelectTmp = (Select) CCJSqlParserUtil.parse(removeVariables(selectBody.toString(), dsType));
                     PlainSelect subPlainSelect = ((PlainSelect) subSelectTmp.getSelectBody());
-                    subSelect.setSelectBody(subPlainSelect);
+                    ((ParenthesedSelect) rightItem).setSelect(subPlainSelect);
                     if (dsType.equals(DatasourceTypes.oracle.getType())) {
-                        subSelect.setAlias(new Alias(rightItem.getAlias().toString(), false));
+                        rightItem.setAlias(new Alias(rightItem.getAlias().toString(), false));
                     } else {
                         if (rightItem.getAlias() == null) {
                             throw new Exception("Failed to parse sql, Every derived table must have its own alias！");
                         }
-                        subSelect.setAlias(new Alias(rightItem.getAlias().toString(), false));
+                        rightItem.setAlias(new Alias(rightItem.getAlias().toString(), false));
                     }
-                    join.setRightItem(subSelect);
+                    join.setRightItem(rightItem);
                 }
                 joinsList.add(join);
             }
@@ -1194,12 +1186,16 @@ public class DataSetTableService {
             binaryExpression = (BinaryExpression) expr;
         } catch (Exception e) {
         }
+
         if (binaryExpression != null) {
-            if (!(binaryExpression.getLeftExpression() instanceof BinaryExpression) && !(binaryExpression.getLeftExpression() instanceof InExpression) && hasVariable(binaryExpression.getRightExpression().toString())) {
+            boolean hasSubBinaryExpression = binaryExpression instanceof AndExpression || binaryExpression instanceof OrExpression;
+
+            if (!hasSubBinaryExpression && !(binaryExpression.getLeftExpression() instanceof BinaryExpression) && !(binaryExpression.getLeftExpression() instanceof InExpression) && hasVariable(binaryExpression.getRightExpression().toString())) {
                 stringBuilder.append(SubstitutedSql);
             } else {
                 expr.accept(getExpressionDeParser(stringBuilder));
             }
+
         } else {
             expr.accept(getExpressionDeParser(stringBuilder));
         }
@@ -1208,30 +1204,15 @@ public class DataSetTableService {
     }
 
     private String handleWith(PlainSelect plainSelect, Select select, String dsType) throws Exception {
-        StringBuilder builder = new StringBuilder();
         if (select != null && CollectionUtils.isNotEmpty(select.getWithItemsList())) {
-            builder.append("WITH");
-            builder.append(" ");
             for (Iterator<WithItem> iter = select.getWithItemsList().iterator(); iter.hasNext(); ) {
                 WithItem withItem = iter.next();
-                builder.append(withItem.getName()).append(" AS ( ").append(removeVariables(withItem.getSubSelect().toString(), dsType)).append(" ) ");
-                if (iter.hasNext()) {
-                    builder.append(",");
-                }
+                ParenthesedSelect parenthesedSelect = (ParenthesedSelect) withItem.getSelect();
+                parenthesedSelect.setSelect((Select) CCJSqlParserUtil.parse(removeVariables(parenthesedSelect.getSelect().toString(), dsType)));
             }
         }
-
-        builder.append(" ").append(plainSelect);
-        return builder.toString();
+        return plainSelect.toString();
     }
-
-    private String handlePlainSelect(PlainSelect plainSelect, Select statementSelect, String dsType) throws Exception {
-        handleSelectItems(plainSelect, dsType);
-        handleFromItems(plainSelect, dsType);
-        handleJoins(plainSelect, dsType);
-        return handleWhere(plainSelect, statementSelect, dsType);
-    }
-
 
     public Map<String, Object> getDBPreview(DataSetTableRequest dataSetTableRequest) throws Exception {
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
@@ -1339,6 +1320,15 @@ public class DataSetTableService {
         List<TableField> fields = result.get("fieldList");
         String[] fieldArray = fields.stream().map(TableField::getFieldName).toArray(String[]::new);
         checkIsRepeat(fieldArray);
+
+        if (!realData && dataTableInfo.isSetKey()) {
+            for (String key : dataTableInfo.getKeys()) {
+                if (!fields.stream().map(TableField::getFieldName).collect(Collectors.toList()).contains(key)) {
+                    DataEaseException.throwException(Translator.get("i18n_dont_contain_key") + key);
+                }
+            }
+        }
+
         List<Map<String, Object>> jsonArray = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(data)) {
             jsonArray = data.stream().map(ele -> {
@@ -1400,12 +1390,7 @@ public class DataSetTableService {
             // 获取每个字段在当前de数据库中的name，作为sql查询后的remarks返回前端展示
             for (DatasetTableField datasetTableField : fieldList) {
                 for (TableField tableField : fields) {
-                    if (StringUtils.equalsIgnoreCase(tableField.getFieldName(),
-                            TableUtils.fieldName(
-                                    datasetTableField.getTableId() + "_" + datasetTableField.getDataeaseName()))
-                            || StringUtils.equalsIgnoreCase(tableField.getFieldName(),
-                            TableUtils.fieldNameShort(datasetTableField.getTableId() + "_"
-                                    + datasetTableField.getOriginName()))) {
+                    if (StringUtils.equalsIgnoreCase(tableField.getFieldName(), TableUtils.fieldName(datasetTableField.getTableId() + "_" + datasetTableField.getDataeaseName())) || StringUtils.equalsIgnoreCase(tableField.getFieldName(), TableUtils.fieldNameShort(datasetTableField.getTableId() + "_" + datasetTableField.getOriginName()))) {
                         tableField.setRemarks(datasetTableField.getName());
                         break;
                     }
@@ -1424,8 +1409,7 @@ public class DataSetTableService {
 
     public Map<String, Object> getCustomPreview(DataSetTableRequest dataSetTableRequest) throws Exception {
         DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
-        List<DataSetTableUnionDTO> list = dataSetTableUnionService
-                .listByTableId(dataTableInfoDTO.getList().get(0).getTableId());
+        List<DataSetTableUnionDTO> list = dataSetTableUnionService.listByTableId(dataTableInfoDTO.getList().get(0).getTableId());
         String sql;
 
         DatasourceRequest datasourceRequest = new DatasourceRequest();
@@ -1462,15 +1446,10 @@ public class DataSetTableService {
 
             // 获取每个字段在当前de数据库中的name，作为sql查询后的remarks返回前端展示
             List<DatasetTableField> checkedFieldList = new ArrayList<>();
-            dataTableInfoDTO.getList().forEach(
-                    ele -> checkedFieldList.addAll(dataSetTableFieldsService.getListByIds(ele.getCheckedFields())));
+            dataTableInfoDTO.getList().forEach(ele -> checkedFieldList.addAll(dataSetTableFieldsService.getListByIds(ele.getCheckedFields())));
             for (DatasetTableField datasetTableField : checkedFieldList) {
                 for (TableField tableField : fields) {
-                    if (StringUtils.equalsIgnoreCase(tableField.getFieldName(),
-                            TableUtils.fieldName(
-                                    datasetTableField.getTableId() + "_" + datasetTableField.getDataeaseName()))
-                            || StringUtils.equalsIgnoreCase(tableField.getFieldName(), TableUtils.fieldName(
-                            datasetTableField.getTableId() + "_" + datasetTableField.getOriginName()))) {
+                    if (StringUtils.equalsIgnoreCase(tableField.getFieldName(), TableUtils.fieldName(datasetTableField.getTableId() + "_" + datasetTableField.getDataeaseName())) || StringUtils.equalsIgnoreCase(tableField.getFieldName(), TableUtils.fieldName(datasetTableField.getTableId() + "_" + datasetTableField.getOriginName()))) {
                         tableField.setRemarks(datasetTableField.getName());
                         break;
                     }
@@ -1498,10 +1477,7 @@ public class DataSetTableService {
             if (CollectionUtils.isEmpty(fields)) {
                 throw new RuntimeException(Translator.get("i18n_cst_ds_tb_or_field_deleted"));
             }
-            String[] array = fields.stream()
-                    .map(f -> table + "." + f.getDataeaseName() + " AS "
-                            + TableUtils.fieldName(ele.getTableId() + "_" + f.getDataeaseName()))
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> table + "." + f.getDataeaseName() + " AS " + TableUtils.fieldName(ele.getTableId() + "_" + f.getDataeaseName())).toArray(String[]::new);
             customInfo.put(table, array);
         });
         DataTableInfoCustomUnion first = dataTableInfoDTO.getList().get(0);
@@ -1520,33 +1496,22 @@ public class DataSetTableService {
                         DatasetTableField sourceField = dataSetTableFieldsService.get(dto.getSourceTableFieldId());
                         DatasetTableField targetField = dataSetTableFieldsService.get(dto.getTargetTableFieldId());
                         if (ObjectUtils.isEmpty(sourceField) || ObjectUtils.isEmpty(targetField)) {
-                            DEException.throwException(Translator.get("i18n_dataset_field_delete"));
+                            DataEaseException.throwException(Translator.get("i18n_dataset_field_delete"));
                         }
 
-                        join.append(convertUnionTypeToSQL(dto.getSourceUnionRelation()))
-                                .append(TableUtils.tableName(dto.getTargetTableId()))
-                                .append(" ON ")
-                                .append(TableUtils.tableName(dto.getSourceTableId())).append(".")
-                                .append(sourceField.getDataeaseName())
-                                .append(" = ")
-                                .append(TableUtils.tableName(dto.getTargetTableId())).append(".")
-                                .append(targetField.getDataeaseName());
+                        join.append(convertUnionTypeToSQL(dto.getSourceUnionRelation())).append(TableUtils.tableName(dto.getTargetTableId())).append(" ON ").append(TableUtils.tableName(dto.getSourceTableId())).append(".").append(sourceField.getDataeaseName()).append(" = ").append(TableUtils.tableName(dto.getTargetTableId())).append(".").append(targetField.getDataeaseName());
                     }
                 }
             }
             if (StringUtils.isEmpty(f)) {
                 throw new RuntimeException(Translator.get("i18n_custom_ds_delete"));
             }
-            return MessageFormat.format("SELECT {0} FROM {1}", f, TableUtils.tableName(first.getTableId()))
-                    + join.toString();
+            return MessageFormat.format("SELECT {0} FROM {1}", f, TableUtils.tableName(first.getTableId())) + join.toString();
         } else {
-            if (StringUtils
-                    .isEmpty(StringUtils.join(customInfo.get(TableUtils.tableName(first.getTableId())), ","))) {
+            if (StringUtils.isEmpty(StringUtils.join(customInfo.get(TableUtils.tableName(first.getTableId())), ","))) {
                 throw new RuntimeException(Translator.get("i18n_custom_ds_delete"));
             }
-            return MessageFormat.format("SELECT {0} FROM {1}",
-                    StringUtils.join(customInfo.get(TableUtils.tableName(first.getTableId())), ","),
-                    TableUtils.tableName(first.getTableId()));
+            return MessageFormat.format("SELECT {0} FROM {1}", StringUtils.join(customInfo.get(TableUtils.tableName(first.getTableId())), ","), TableUtils.tableName(first.getTableId()));
         }
     }
 
@@ -1564,10 +1529,7 @@ public class DataSetTableService {
             if (CollectionUtils.isEmpty(fields)) {
                 throw new RuntimeException(Translator.get("i18n_cst_ds_tb_or_field_deleted"));
             }
-            String[] array = fields.stream()
-                    .map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS "
-                            + TableUtils.fieldName(ele.getTableId() + "_" + f.getOriginName()))
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS " + TableUtils.fieldName(ele.getTableId() + "_" + f.getOriginName())).toArray(String[]::new);
             customInfo.put(table, array);
         }
         DataTableInfoCustomUnion first = dataTableInfoDTO.getList().get(0);
@@ -1588,22 +1550,13 @@ public class DataSetTableService {
                         DatasetTableField sourceField = dataSetTableFieldsService.get(dto.getSourceTableFieldId());
                         DatasetTableField targetField = dataSetTableFieldsService.get(dto.getTargetTableFieldId());
                         if (ObjectUtils.isEmpty(sourceField) || ObjectUtils.isEmpty(targetField)) {
-                            DEException.throwException(Translator.get("i18n_dataset_field_delete"));
+                            DataEaseException.throwException(Translator.get("i18n_dataset_field_delete"));
                         }
                         DatasetTable sourceTable = datasetTableMapper.selectByPrimaryKey(dto.getSourceTableId());
-                        String sourceTableName = new Gson().fromJson(sourceTable.getInfo(), DataTableInfoDTO.class)
-                                .getTable();
+                        String sourceTableName = new Gson().fromJson(sourceTable.getInfo(), DataTableInfoDTO.class).getTable();
                         DatasetTable targetTable = datasetTableMapper.selectByPrimaryKey(dto.getTargetTableId());
-                        String targetTableName = new Gson().fromJson(targetTable.getInfo(), DataTableInfoDTO.class)
-                                .getTable();
-                        join.append(convertUnionTypeToSQL(dto.getSourceUnionRelation()))
-                                .append(String.format(keyword, targetTableName))
-                                .append(" ON ")
-                                .append(String.format(keyword, sourceTableName)).append(".")
-                                .append(String.format(keyword, sourceField.getOriginName()))
-                                .append(" = ")
-                                .append(String.format(keyword, targetTableName)).append(".")
-                                .append(String.format(keyword, targetField.getOriginName()));
+                        String targetTableName = new Gson().fromJson(targetTable.getInfo(), DataTableInfoDTO.class).getTable();
+                        join.append(convertUnionTypeToSQL(dto.getSourceUnionRelation())).append(String.format(keyword, targetTableName)).append(" ON ").append(String.format(keyword, sourceTableName)).append(".").append(String.format(keyword, sourceField.getOriginName())).append(" = ").append(String.format(keyword, targetTableName)).append(".").append(String.format(keyword, targetField.getOriginName()));
                     }
                 }
             }
@@ -1615,8 +1568,7 @@ public class DataSetTableService {
             if (StringUtils.isEmpty(StringUtils.join(customInfo.get(tableName), ","))) {
                 throw new RuntimeException(Translator.get("i18n_custom_ds_delete"));
             }
-            return MessageFormat.format("SELECT {0} FROM {1}", StringUtils.join(customInfo.get(tableName), ","),
-                    String.format(keyword, tableName));
+            return MessageFormat.format("SELECT {0} FROM {1}", StringUtils.join(customInfo.get(tableName), ","), String.format(keyword, tableName));
         }
     }
 
@@ -1653,32 +1605,26 @@ public class DataSetTableService {
             String table = TableUtils.tableName(tableId);
             DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(tableId);
             if (ObjectUtils.isEmpty(datasetTable)) {
-                DEException.throwException(
-                        Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
+                DataEaseException.throwException(Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
             }
             CurrentUserDto user = AuthUtils.getUser();
             if (user != null && !user.getIsAdmin()) {
                 DataSetTableDTO withPermission = getWithPermission(datasetTable.getId(), user.getUserId());
                 if (ObjectUtils.isEmpty(withPermission.getPrivileges()) || !withPermission.getPrivileges().contains("use")) {
-                    DEException.throwException(
-                            Translator.get("i18n_dataset_no_permission") + String.format(":table name [%s]", withPermission.getName()));
+                    DataEaseException.throwException(Translator.get("i18n_dataset_no_permission") + String.format(":table name [%s]", withPermission.getName()));
                 }
             }
             List<DatasetTableField> fields = dataSetTableFieldsService.getListByIdsEach(unionDTO.getCurrentDsField());
 
-            String[] array = fields.stream()
-                    .map(f -> {
-                        String s = "";
-                        if (f == null) {
-                            DEException.throwException(
-                                    Translator.get("i18n_ds_error"));
-                        } else {
-                            s = table + "." + f.getDataeaseName() + " AS "
-                                    + TableUtils.fieldName(tableId + "_" + f.getDataeaseName());
-                        }
-                        return s;
-                    })
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> {
+                String s = "";
+                if (f == null) {
+                    DataEaseException.throwException(Translator.get("i18n_ds_error"));
+                } else {
+                    s = table + "." + f.getDataeaseName() + " AS " + TableUtils.fieldName(tableId + "_" + f.getDataeaseName());
+                }
+                return s;
+            }).toArray(String[]::new);
             checkedInfo.put(table, array);
             checkedFields.addAll(fields);
             // 获取child的fields和union
@@ -1704,44 +1650,34 @@ public class DataSetTableService {
                 DatasetTableField pField = dataSetTableFieldsService.get(u.getParentField().getId());
                 DatasetTableField cField = dataSetTableFieldsService.get(u.getCurrentField().getId());
                 if (ObjectUtils.isEmpty(pField) || ObjectUtils.isEmpty(cField)) {
-                    DEException.throwException(Translator.get("i18n_dataset_field_delete"));
+                    DataEaseException.throwException(Translator.get("i18n_dataset_field_delete"));
                 }
                 DatasetTable parentTable = datasetTableMapper.selectByPrimaryKey(pField.getTableId());
                 DatasetTable currentTable = datasetTableMapper.selectByPrimaryKey(cField.getTableId());
 
-                join.append(" ").append(joinType).append(" ").append(TableUtils.tableName(currentTable.getId()))
-                        .append(" ON ");
+                join.append(" ").append(joinType).append(" ").append(TableUtils.tableName(currentTable.getId())).append(" ON ");
                 for (int i = 0; i < unionParamDTO.getUnionFields().size(); i++) {
                     UnionItemDTO unionItemDTO = unionParamDTO.getUnionFields().get(i);
                     // 通过field id取得field详情，并且以第一组为准，寻找dataset table
-                    DatasetTableField parentField = dataSetTableFieldsService
-                            .get(unionItemDTO.getParentField().getId());
-                    DatasetTableField currentField = dataSetTableFieldsService
-                            .get(unionItemDTO.getCurrentField().getId());
+                    DatasetTableField parentField = dataSetTableFieldsService.get(unionItemDTO.getParentField().getId());
+                    DatasetTableField currentField = dataSetTableFieldsService.get(unionItemDTO.getCurrentField().getId());
 
-                    join.append(TableUtils.tableName(parentTable.getId())).append(".")
-                            .append(parentField.getDataeaseName())
-                            .append(" = ")
-                            .append(TableUtils.tableName(currentTable.getId())).append(".")
-                            .append(currentField.getDataeaseName());
+                    join.append(TableUtils.tableName(parentTable.getId())).append(".").append(parentField.getDataeaseName()).append(" = ").append(TableUtils.tableName(currentTable.getId())).append(".").append(currentField.getDataeaseName());
                     if (i < unionParamDTO.getUnionFields().size() - 1) {
                         join.append(" AND ");
                     }
                 }
             }
             if (StringUtils.isEmpty(f)) {
-                DEException.throwException(Translator.get("i18n_union_ds_no_checked"));
+                DataEaseException.throwException(Translator.get("i18n_union_ds_no_checked"));
             }
-            sql = MessageFormat.format("SELECT {0} FROM {1}", f,
-                    TableUtils.tableName(union.get(0).getCurrentDs().getId())) + join.toString();
+            sql = MessageFormat.format("SELECT {0} FROM {1}", f, TableUtils.tableName(union.get(0).getCurrentDs().getId())) + join.toString();
         } else {
-            String f = StringUtils.join(checkedInfo.get(TableUtils.tableName(union.get(0).getCurrentDs().getId())),
-                    ",");
+            String f = StringUtils.join(checkedInfo.get(TableUtils.tableName(union.get(0).getCurrentDs().getId())), ",");
             if (StringUtils.isEmpty(f)) {
                 throw new RuntimeException(Translator.get("i18n_union_ds_no_checked"));
             }
-            sql = MessageFormat.format("SELECT {0} FROM {1}", f,
-                    TableUtils.tableName(union.get(0).getCurrentDs().getId()));
+            sql = MessageFormat.format("SELECT {0} FROM {1}", f, TableUtils.tableName(union.get(0).getCurrentDs().getId()));
         }
         Map<String, Object> map = new HashMap<>();
         map.put("sql", sql);
@@ -1751,22 +1687,17 @@ public class DataSetTableService {
     }
 
     // 递归计算出所有子级的checkedFields和unionParam
-    private void getUnionSQLDorisJoin(List<UnionDTO> childrenDs, Map<String, String[]> checkedInfo,
-                                      List<UnionParamDTO> unionList, List<DatasetTableField> checkedFields) {
+    private void getUnionSQLDorisJoin(List<UnionDTO> childrenDs, Map<String, String[]> checkedInfo, List<UnionParamDTO> unionList, List<DatasetTableField> checkedFields) {
         for (UnionDTO unionDTO : childrenDs) {
             String tableId = unionDTO.getCurrentDs().getId();
             String table = TableUtils.tableName(tableId);
             DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(tableId);
             if (ObjectUtils.isEmpty(datasetTable)) {
-                DEException.throwException(
-                        Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
+                DataEaseException.throwException(Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
             }
             List<DatasetTableField> fields = dataSetTableFieldsService.getListByIdsEach(unionDTO.getCurrentDsField());
 
-            String[] array = fields.stream()
-                    .map(f -> table + "." + f.getDataeaseName() + " AS "
-                            + TableUtils.fieldName(tableId + "_" + f.getDataeaseName()))
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> table + "." + f.getDataeaseName() + " AS " + TableUtils.fieldName(tableId + "_" + f.getDataeaseName())).toArray(String[]::new);
             checkedInfo.put(table, array);
             checkedFields.addAll(fields);
 
@@ -1790,11 +1721,7 @@ public class DataSetTableService {
             schema = schemaJson.getAsString();
         }
         String joinPrefix = "";
-        if (StringUtils.isNotEmpty(schema) && (StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.db2.getType()) ||
-                StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.sqlServer.getType()) ||
-                StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.oracle.getType()) ||
-                StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.kingbase.getType()) ||
-                StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.pg.getType()))) {
+        if (StringUtils.isNotEmpty(schema) && (StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.db2.getType()) || StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.sqlServer.getType()) || StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.oracle.getType()) || StringUtils.equalsIgnoreCase(ds.getType(), "kingbase") || StringUtils.equalsIgnoreCase(ds.getType(), DatasourceTypes.pg.getType()))) {
             joinPrefix = String.format(keyword, schema) + ".";
         }
 
@@ -1804,32 +1731,24 @@ public class DataSetTableService {
         List<UnionParamDTO> unionList = new ArrayList<>();
         List<DatasetTableField> checkedFields = new ArrayList<>();
         String sql = "";
-        String tableName = new Gson()
-                .fromJson(datasetTableMapper.selectByPrimaryKey(union.get(0).getCurrentDs().getId()).getInfo(),
-                        DataTableInfoDTO.class)
-                .getTable();
+        String tableName = new Gson().fromJson(datasetTableMapper.selectByPrimaryKey(union.get(0).getCurrentDs().getId()).getInfo(), DataTableInfoDTO.class).getTable();
         for (UnionDTO unionDTO : union) {
             DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(unionDTO.getCurrentDs().getId());
             String table = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class).getTable();
             String tableId = unionDTO.getCurrentDs().getId();
             if (ObjectUtils.isEmpty(datasetTable)) {
-                DEException.throwException(
-                        Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
+                DataEaseException.throwException(Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
             }
             CurrentUserDto user = AuthUtils.getUser();
             if (user != null && !user.getIsAdmin()) {
                 DataSetTableDTO withPermission = getWithPermission(datasetTable.getId(), user.getUserId());
                 if (ObjectUtils.isEmpty(withPermission.getPrivileges()) || !withPermission.getPrivileges().contains("use")) {
-                    DEException.throwException(
-                            Translator.get("i18n_dataset_no_permission") + String.format(":table name [%s]", withPermission.getName()));
+                    DataEaseException.throwException(Translator.get("i18n_dataset_no_permission") + String.format(":table name [%s]", withPermission.getName()));
                 }
             }
             List<DatasetTableField> fields = dataSetTableFieldsService.getListByIdsEach(unionDTO.getCurrentDsField());
 
-            String[] array = fields.stream()
-                    .map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS "
-                            + TableUtils.fieldNameShort(tableId + "_" + f.getOriginName()))
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS " + TableUtils.fieldNameShort(tableId + "_" + f.getOriginName())).toArray(String[]::new);
             checkedInfo.put(table, array);
             checkedFields.addAll(fields);
             // 获取child的fields和union
@@ -1855,36 +1774,28 @@ public class DataSetTableService {
                 DatasetTableField pField = dataSetTableFieldsService.get(u.getParentField().getId());
                 DatasetTableField cField = dataSetTableFieldsService.get(u.getCurrentField().getId());
                 if (ObjectUtils.isEmpty(pField) || ObjectUtils.isEmpty(cField)) {
-                    DEException.throwException(Translator.get("i18n_dataset_field_delete"));
+                    DataEaseException.throwException(Translator.get("i18n_dataset_field_delete"));
                 }
                 DatasetTable parentTable = datasetTableMapper.selectByPrimaryKey(pField.getTableId());
                 String parentTableName = new Gson().fromJson(parentTable.getInfo(), DataTableInfoDTO.class).getTable();
                 DatasetTable currentTable = datasetTableMapper.selectByPrimaryKey(cField.getTableId());
-                String currentTableName = new Gson().fromJson(currentTable.getInfo(), DataTableInfoDTO.class)
-                        .getTable();
+                String currentTableName = new Gson().fromJson(currentTable.getInfo(), DataTableInfoDTO.class).getTable();
 
-                join.append(" ").append(joinType).append(" ").append(joinPrefix).append(String.format(keyword, currentTableName))
-                        .append(" ON ");
+                join.append(" ").append(joinType).append(" ").append(joinPrefix).append(String.format(keyword, currentTableName)).append(" ON ");
                 for (int i = 0; i < unionParamDTO.getUnionFields().size(); i++) {
                     UnionItemDTO unionItemDTO = unionParamDTO.getUnionFields().get(i);
                     // 通过field id取得field详情，并且以第一组为准，寻找dataset table
-                    DatasetTableField parentField = dataSetTableFieldsService
-                            .get(unionItemDTO.getParentField().getId());
-                    DatasetTableField currentField = dataSetTableFieldsService
-                            .get(unionItemDTO.getCurrentField().getId());
+                    DatasetTableField parentField = dataSetTableFieldsService.get(unionItemDTO.getParentField().getId());
+                    DatasetTableField currentField = dataSetTableFieldsService.get(unionItemDTO.getCurrentField().getId());
 
-                    join.append(String.format(keyword, parentTableName)).append(".")
-                            .append(String.format(keyword, parentField.getOriginName()))
-                            .append(" = ")
-                            .append(String.format(keyword, currentTableName)).append(".")
-                            .append(String.format(keyword, currentField.getOriginName()));
+                    join.append(String.format(keyword, parentTableName)).append(".").append(String.format(keyword, parentField.getOriginName())).append(" = ").append(String.format(keyword, currentTableName)).append(".").append(String.format(keyword, currentField.getOriginName()));
                     if (i < unionParamDTO.getUnionFields().size() - 1) {
                         join.append(" AND ");
                     }
                 }
             }
             if (StringUtils.isEmpty(f)) {
-                DEException.throwException(Translator.get("i18n_union_ds_no_checked"));
+                DataEaseException.throwException(Translator.get("i18n_union_ds_no_checked"));
             }
             sql = MessageFormat.format("SELECT {0} FROM {1}", f, joinPrefix + String.format(keyword, tableName)) + join.toString();
         } else {
@@ -1912,23 +1823,18 @@ public class DataSetTableService {
     }
 
     // 递归计算出所有子级的checkedFields和unionParam
-    private void getUnionSQLDatasourceJoin(List<UnionDTO> childrenDs, Map<String, String[]> checkedInfo,
-                                           List<UnionParamDTO> unionList, String keyword, List<DatasetTableField> checkedFields) {
+    private void getUnionSQLDatasourceJoin(List<UnionDTO> childrenDs, Map<String, String[]> checkedInfo, List<UnionParamDTO> unionList, String keyword, List<DatasetTableField> checkedFields) {
         for (UnionDTO unionDTO : childrenDs) {
             DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(unionDTO.getCurrentDs().getId());
             String tableId = unionDTO.getCurrentDs().getId();
             if (ObjectUtils.isEmpty(datasetTable)) {
-                DEException.throwException(
-                        Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
+                DataEaseException.throwException(Translator.get("i18n_custom_ds_delete") + String.format(":table id [%s]", tableId));
             }
             String table = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class).getTable();
 
             List<DatasetTableField> fields = dataSetTableFieldsService.getListByIdsEach(unionDTO.getCurrentDsField());
 
-            String[] array = fields.stream()
-                    .map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS "
-                            + TableUtils.fieldNameShort(tableId + "_" + f.getOriginName()))
-                    .toArray(String[]::new);
+            String[] array = fields.stream().map(f -> String.format(keyword, table) + "." + String.format(keyword, f.getOriginName()) + " AS " + TableUtils.fieldNameShort(tableId + "_" + f.getOriginName())).toArray(String[]::new);
             checkedInfo.put(table, array);
             checkedFields.addAll(fields);
 
@@ -1994,6 +1900,7 @@ public class DataSetTableService {
             if (!SQLUtils.isQuery(sql)){
                 return;
             }
+
             sql = removeVariables(sql, ds.getType()).replaceAll(SubstitutedSql.trim(), SubstitutedSqlVirtualData);
             String sqlAsTable = qp.createSQLPreview(sql, null);
             datasourceRequest.setQuery(sqlAsTable);
@@ -2003,15 +1910,12 @@ public class DataSetTableService {
         } else if (StringUtils.equalsIgnoreCase(datasetTable.getType(), DatasetType.CUSTOM.name())) {
             if (datasetTable.getMode() == 1) {
                 // save field
-                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(),
-                        DataTableInfoDTO.class);
+                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
                 List<DataTableInfoCustomUnion> list = dataTableInfoDTO.getList();
                 List<DatasetTableField> fieldList = new ArrayList<>();
                 list.forEach(ele -> {
-                    List<DatasetTableField> listByIds = dataSetTableFieldsService
-                            .getListByIdsEach(ele.getCheckedFields());
-                    listByIds.forEach(f -> f.setDataeaseName(
-                            TableUtils.fieldName(ele.getTableId() + "_" + f.getDataeaseName())));
+                    List<DatasetTableField> listByIds = dataSetTableFieldsService.getListByIdsEach(ele.getCheckedFields());
+                    listByIds.forEach(f -> f.setDataeaseName(TableUtils.fieldName(ele.getTableId() + "_" + f.getDataeaseName())));
                     fieldList.addAll(listByIds);
                 });
                 for (int i = 0; i < fieldList.size(); i++) {
@@ -2024,8 +1928,7 @@ public class DataSetTableService {
                 dataSetTableFieldsService.batchEdit(fieldList);
                 // custom 创建doris视图
                 if (datasetTable.getMode() == 1) {
-                    createDorisView(TableUtils.tableName(datasetTable.getId()), getCustomViewSQL(dataTableInfoDTO,
-                            dataSetTableUnionService.listByTableId(dataTableInfoDTO.getList().get(0).getTableId())));
+                    createDorisView(TableUtils.tableName(datasetTable.getId()), getCustomViewSQL(dataTableInfoDTO, dataSetTableUnionService.listByTableId(dataTableInfoDTO.getList().get(0).getTableId())));
                 }
                 return;
             } else {
@@ -2033,26 +1936,21 @@ public class DataSetTableService {
                 DatasourceRequest datasourceRequest = new DatasourceRequest();
                 datasourceRequest.setDatasource(ds);
                 DataTableInfoDTO dt = new Gson().fromJson(datasetTable.getInfo(), DataTableInfoDTO.class);
-                List<DataSetTableUnionDTO> list = dataSetTableUnionService
-                        .listByTableId(dt.getList().get(0).getTableId());
+                List<DataSetTableUnionDTO> list = dataSetTableUnionService.listByTableId(dt.getList().get(0).getTableId());
                 String sqlAsTable = getCustomSQLDatasource(dt, list, ds);
                 datasourceRequest.setQuery(sqlAsTable);
                 fields = datasourceProvider.fetchResultField(datasourceRequest);
 
-                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(),
-                        DataTableInfoDTO.class);
+                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
                 List<DataTableInfoCustomUnion> listField = dataTableInfoDTO.getList();
                 List<DatasetTableField> fieldList = new ArrayList<>();
                 listField.forEach(ele -> {
-                    List<DatasetTableField> listByIds = dataSetTableFieldsService
-                            .getListByIdsEach(ele.getCheckedFields());
+                    List<DatasetTableField> listByIds = dataSetTableFieldsService.getListByIdsEach(ele.getCheckedFields());
                     fieldList.addAll(listByIds);
                 });
                 for (DatasetTableField field : fieldList) {
                     for (TableField tableField : fields) {
-                        if (StringUtils.equalsIgnoreCase(
-                                TableUtils.fieldName(field.getTableId() + "_" + field.getOriginName()),
-                                tableField.getFieldName())) {
+                        if (StringUtils.equalsIgnoreCase(TableUtils.fieldName(field.getTableId() + "_" + field.getOriginName()), tableField.getFieldName())) {
                             tableField.setRemarks(field.getName());
                             break;
                         }
@@ -2066,8 +1964,7 @@ public class DataSetTableService {
                 DatasourceRequest datasourceRequest = new DatasourceRequest();
                 datasourceRequest.setDatasource(ds);
                 // save field
-                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(),
-                        DataTableInfoDTO.class);
+                DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
                 Map<String, Object> sqlMap = getUnionSQLDoris(dataTableInfoDTO);
                 String sql = (String) sqlMap.get("sql");
                 List<DatasetTableField> fieldList = (List<DatasetTableField>) sqlMap.get("field");
@@ -2082,9 +1979,7 @@ public class DataSetTableService {
                 fields = datasourceProvider.fetchResultField(datasourceRequest);
                 for (DatasetTableField field : fieldList) {
                     for (TableField tableField : fields) {
-                        if (StringUtils.equalsIgnoreCase(
-                                TableUtils.fieldName(field.getTableId() + "_" + field.getDataeaseName()),
-                                tableField.getFieldName())) {
+                        if (StringUtils.equalsIgnoreCase(TableUtils.fieldName(field.getTableId() + "_" + field.getDataeaseName()), tableField.getFieldName())) {
                             tableField.setRemarks(field.getName());
                             tableField.setFieldType(field.getType()); //将原有的type赋值给新创建的数据列
                             break;
@@ -2108,9 +2003,7 @@ public class DataSetTableService {
 
                 for (DatasetTableField field : fieldList) {
                     for (TableField tableField : fields) {
-                        if (StringUtils.equalsIgnoreCase(
-                                TableUtils.fieldNameShort(field.getTableId() + "_" + field.getOriginName()),
-                                tableField.getFieldName())) {
+                        if (StringUtils.equalsIgnoreCase(TableUtils.fieldNameShort(field.getTableId() + "_" + field.getOriginName()), tableField.getFieldName())) {
                             tableField.setRemarks(field.getName());
                             break;
                         }
@@ -2139,7 +2032,7 @@ public class DataSetTableService {
                     datasetTableField.setType(field.getFieldType());
                     datasetTableField.setSize(field.getFieldSize());
                     datasetTableField.setAccuracy(field.getAccuracy());
-                    if (ObjectUtils.isEmpty(ds)) {
+                    if (StringUtils.isEmpty(datasetTable.getDataSourceId())) {
                         datasetTableField.setDeExtractType(transFieldType(field.getFieldType()));
                     } else {
                         Integer fieldType = qp.transFieldType(field.getFieldType());
@@ -2155,7 +2048,7 @@ public class DataSetTableService {
                         datasetTableField.setDataeaseName(TableUtils.columnName(field.getFieldName()));
                     }
                     datasetTableField.setType(field.getFieldType());
-                    if (ObjectUtils.isEmpty(ds)) {
+                    if (StringUtils.isEmpty(datasetTable.getDataSourceId())) {
                         datasetTableField.setDeType(transFieldType(field.getFieldType()));
                         datasetTableField.setDeExtractType(transFieldType(field.getFieldType()));
                     } else {
@@ -2209,8 +2102,7 @@ public class DataSetTableService {
         }
     }
 
-    public DatasetTableIncrementalConfig incrementalConfig(
-            DatasetTableIncrementalConfig datasetTableIncrementalConfig) {
+    public DatasetTableIncrementalConfig incrementalConfig(DatasetTableIncrementalConfig datasetTableIncrementalConfig) {
         if (StringUtils.isEmpty(datasetTableIncrementalConfig.getTableId())) {
             return new DatasetTableIncrementalConfig();
         }
@@ -2254,34 +2146,28 @@ public class DataSetTableService {
 
     private void checkColumes(DatasetTableIncrementalConfig datasetTableIncrementalConfig) throws Exception {
         DatasetTable datasetTable = datasetTableMapper.selectByPrimaryKey(datasetTableIncrementalConfig.getTableId());
-        List<DatasetTableField> datasetTableFields = dataSetTableFieldsService.getFieldsByTableId(datasetTable.getId())
-                .stream().filter(datasetTableField -> datasetTableField.getExtField() == 0).sorted((o1, o2) -> {
-                    if (o1.getColumnIndex() == null) {
-                        return -1;
-                    }
-                    if (o2.getColumnIndex() == null) {
-                        return 1;
-                    }
-                    return o1.getColumnIndex().compareTo(o2.getColumnIndex());
-                }).collect(Collectors.toList());
+        List<DatasetTableField> datasetTableFields = dataSetTableFieldsService.getFieldsByTableId(datasetTable.getId()).stream().filter(datasetTableField -> datasetTableField.getExtField() == 0).sorted((o1, o2) -> {
+            if (o1.getColumnIndex() == null) {
+                return -1;
+            }
+            if (o2.getColumnIndex() == null) {
+                return 1;
+            }
+            return o1.getColumnIndex().compareTo(o2.getColumnIndex());
+        }).collect(Collectors.toList());
 
-        List<String> originNameFields = datasetTableFields.stream().map(DatasetTableField::getOriginName)
-                .collect(Collectors.toList());
+        List<String> originNameFields = datasetTableFields.stream().map(DatasetTableField::getOriginName).collect(Collectors.toList());
         Datasource ds = datasourceMapper.selectByPrimaryKey(datasetTable.getDataSourceId());
         QueryProvider qp = ProviderFactory.getQueryProvider(ds.getType());
         Provider datasourceProvider = ProviderFactory.getProvider(ds.getType());
         DatasourceRequest datasourceRequest = new DatasourceRequest();
         datasourceRequest.setDatasource(ds);
-        if (StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalAdd())
-                && StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalAdd().replace(" ", ""))) {// 增量添加
-            String sql = datasetTableIncrementalConfig.getIncrementalAdd()
-                    .replace(lastUpdateTime, Long.valueOf(System.currentTimeMillis()).toString())
-                    .replace(currentUpdateTime, Long.valueOf(System.currentTimeMillis()).toString());
+        if (StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalAdd()) && StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalAdd().replace(" ", ""))) {// 增量添加
+            String sql = datasetTableIncrementalConfig.getIncrementalAdd().replace(lastUpdateTime, Long.valueOf(System.currentTimeMillis()).toString()).replace(currentUpdateTime, Long.valueOf(System.currentTimeMillis()).toString());
             datasourceRequest.setQuery(qp.wrapSql(sql));
             List<String> sqlFields = new ArrayList<>();
             try {
-                datasourceProvider.fetchResultField(datasourceRequest).stream().map(TableField::getFieldName)
-                        .forEach(sqlFields::add);
+                datasourceProvider.fetchResultField(datasourceRequest).stream().map(TableField::getFieldName).forEach(sqlFields::add);
             } catch (Exception e) {
                 DataEaseException.throwException(Translator.get("i18n_check_sql_error") + e.getMessage());
             }
@@ -2290,16 +2176,12 @@ public class DataSetTableService {
                 DataEaseException.throwException(Translator.get("i18n_sql_add_not_matching") + sqlFields.toString());
             }
         }
-        if (StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalDelete())
-                && StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalDelete().replace(" ", ""))) {// 增量删除
-            String sql = datasetTableIncrementalConfig.getIncrementalDelete()
-                    .replace(lastUpdateTime, Long.valueOf(System.currentTimeMillis()).toString())
-                    .replace(currentUpdateTime, Long.valueOf(System.currentTimeMillis()).toString());
+        if (StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalDelete()) && StringUtils.isNotEmpty(datasetTableIncrementalConfig.getIncrementalDelete().replace(" ", ""))) {// 增量删除
+            String sql = datasetTableIncrementalConfig.getIncrementalDelete().replace(lastUpdateTime, Long.valueOf(System.currentTimeMillis()).toString()).replace(currentUpdateTime, Long.valueOf(System.currentTimeMillis()).toString());
             datasourceRequest.setQuery(qp.wrapSql(sql));
             List<String> sqlFields = new ArrayList<>();
             try {
-                datasourceProvider.fetchResultField(datasourceRequest).stream().map(TableField::getFieldName)
-                        .forEach(sqlFields::add);
+                datasourceProvider.fetchResultField(datasourceRequest).stream().map(TableField::getFieldName).forEach(sqlFields::add);
             } catch (Exception e) {
                 DataEaseException.throwException(Translator.get("i18n_check_sql_error") + e.getMessage());
             }
@@ -2444,9 +2326,7 @@ public class DataSetTableService {
         } else {
             returnSheetDataList = excelSheetDataList;
         }
-        returnSheetDataList = returnSheetDataList.stream()
-                .filter(excelSheetData -> CollectionUtils.isNotEmpty(excelSheetData.getFields()))
-                .collect(Collectors.toList());
+        returnSheetDataList = returnSheetDataList.stream().filter(excelSheetData -> CollectionUtils.isNotEmpty(excelSheetData.getFields())).collect(Collectors.toList());
         // save file
         String excelId = UUID.randomUUID().toString();
         String filePath = saveFile(file, excelId);
@@ -2491,7 +2371,7 @@ public class DataSetTableService {
             }
             String json = JSON.toJSONString(noModelDataListener.getData());
             List<List<String>> data = JSON.parseObject(json, new TypeReference<List<List<String>>>() {
-            });
+            }, Feature.IgnoreNotMatch);
             data = (isPreview && noModelDataListener.getData().size() > 1000 ? new ArrayList<>(data.subList(0, 1000)) : data);
             if (isPreview) {
                 for (int i = 0; i < data.size(); i++) {
@@ -2512,19 +2392,10 @@ public class DataSetTableService {
         return excelSheetDataList;
     }
 
-    public List<ExcelSheetData> parseExcel(String filename, InputStream inputStream, boolean isPreview)
-            throws Exception {
+    public List<ExcelSheetData> parseExcel(String filename, InputStream inputStream, boolean isPreview) throws Exception {
         List<ExcelSheetData> excelSheetDataList = new ArrayList<>();
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
-        if (StringUtils.equalsIgnoreCase(suffix, "xls")) {
-            ExcelXlsReader excelXlsReader = new ExcelXlsReader();
-            excelXlsReader.setObtainedNum(1000);
-            excelXlsReader.process(inputStream);
-            excelSheetDataList = excelXlsReader.totalSheets;
-        }
-        if (StringUtils.equalsIgnoreCase(suffix, "xlsx")) {
-            excelSheetDataList = excelSheetDataList(inputStream, isPreview);
-        }
+        excelSheetDataList = excelSheetDataList(inputStream, isPreview);
 
         if (StringUtils.equalsIgnoreCase(suffix, "csv")) {
             List<TableField> fields = new ArrayList<>();
@@ -2604,8 +2475,7 @@ public class DataSetTableService {
                     double eps = 1e-10;
                     if (value - Math.floor(value) < eps) {
                         if (cellType) {
-                            if (StringUtils.isEmpty(tableField.getFieldType())
-                                    || tableField.getFieldType().equalsIgnoreCase("TEXT")) {
+                            if (StringUtils.isEmpty(tableField.getFieldType()) || tableField.getFieldType().equalsIgnoreCase("TEXT")) {
                                 tableField.setFieldType("LONG");
                             }
                         }
@@ -2656,8 +2526,7 @@ public class DataSetTableService {
                     double eps = 1e-10;
                     if (value - Math.floor(value) < eps) {
                         if (cellType) {
-                            if (StringUtils.isEmpty(tableField.getFieldType())
-                                    || tableField.getFieldType().equalsIgnoreCase("TEXT")) {
+                            if (StringUtils.isEmpty(tableField.getFieldType()) || tableField.getFieldType().equalsIgnoreCase("TEXT")) {
                                 tableField.setFieldType("LONG");
                             }
                         }
@@ -2730,10 +2599,7 @@ public class DataSetTableService {
 
     private void doUpdate() {
         List<QrtzSchedulerState> qrtzSchedulerStates = qrtzSchedulerStateMapper.selectByExample(null);
-        List<String> activeQrtzInstances = qrtzSchedulerStates.stream()
-                .filter(qrtzSchedulerState -> qrtzSchedulerState.getLastCheckinTime()
-                        + qrtzSchedulerState.getCheckinInterval() + 1000 > utilMapper.currentTimestamp())
-                .map(QrtzSchedulerStateKey::getInstanceName).collect(Collectors.toList());
+        List<String> activeQrtzInstances = qrtzSchedulerStates.stream().filter(qrtzSchedulerState -> qrtzSchedulerState.getLastCheckinTime() + qrtzSchedulerState.getCheckinInterval() + 1000 > utilMapper.currentTimestamp()).map(QrtzSchedulerStateKey::getInstanceName).collect(Collectors.toList());
 
         DatasetTableExample example = new DatasetTableExample();
         example.createCriteria().andSyncStatusEqualTo(JobStatus.Underway.name());
@@ -2780,8 +2646,7 @@ public class DataSetTableService {
         DatasetTable record = new DatasetTable();
         record.setSyncStatus(JobStatus.Error.name());
         example.clear();
-        example.createCriteria().andSyncStatusEqualTo(JobStatus.Underway.name())
-                .andIdIn(jobStoppeddDatasetTables.stream().map(DatasetTable::getId).collect(Collectors.toList()));
+        example.createCriteria().andSyncStatusEqualTo(JobStatus.Underway.name()).andIdIn(jobStoppeddDatasetTables.stream().map(DatasetTable::getId).collect(Collectors.toList()));
         datasetTableMapper.updateByExampleSelective(record, example);
 
         //TaskLog
@@ -2790,8 +2655,7 @@ public class DataSetTableService {
         datasetTableTaskLog.setInfo("Job stopped due to system error.");
 
         DatasetTableTaskLogExample datasetTableTaskLogExample = new DatasetTableTaskLogExample();
-        datasetTableTaskLogExample.createCriteria().andStatusEqualTo(JobStatus.Underway.name())
-                .andTableIdIn(datasetTableTasks.stream().map(DatasetTableTask::getTableId).collect(Collectors.toList()));
+        datasetTableTaskLogExample.createCriteria().andStatusEqualTo(JobStatus.Underway.name()).andTableIdIn(datasetTableTasks.stream().map(DatasetTableTask::getTableId).collect(Collectors.toList()));
         datasetTableTaskLogMapper.updateByExampleSelective(datasetTableTaskLog, datasetTableTaskLogExample);
 
         for (DatasetTableTask datasetTableTask : datasetTableTasks) {
@@ -2833,6 +2697,7 @@ public class DataSetTableService {
     }
 
     private ExpressionDeParser getExpressionDeParser(StringBuilder stringBuilder) {
+        SelectDeParser selectDeParser = new SelectDeParser(stringBuilder);
         ExpressionDeParser expressionDeParser = new ExpressionDeParser(null, stringBuilder) {
             @Override
             public void visit(Parenthesis parenthesis) {
@@ -2848,7 +2713,7 @@ public class DataSetTableService {
 
             @Override
             public void visit(AndExpression andExpression) {
-                visitBinaryExpr(andExpression, "AND");
+                visitBinaryExpr(andExpression, andExpression.isUseOperator() ? " && " : " AND ");
             }
 
             @Override
@@ -2921,9 +2786,7 @@ public class DataSetTableService {
                     getBuffer().append(SubstitutedSql);
                     return;
                 }
-
-                visitBinaryExpression(likeExpression,
-                        (likeExpression.isNot() ? " NOT" : "") + (likeExpression.isCaseInsensitive() ? " ILIKE " : " LIKE "));
+                visitBinaryExpression(likeExpression, (likeExpression.isNot() ? " NOT" : "") + (likeExpression.isCaseInsensitive() ? " ILIKE " : " LIKE "));
                 if (likeExpression.getEscape() != null) {
                     buffer.append(" ESCAPE '").append(likeExpression.getEscape()).append('\'');
                 }
@@ -2931,33 +2794,35 @@ public class DataSetTableService {
 
             @Override
             public void visit(InExpression inExpression) {
-                if (inExpression.getRightItemsList() != null && hasVariable(inExpression.getRightItemsList().toString())) {
-                    stringBuilder.append(SubstitutedSql);
-                    return;
-                }
-                if (inExpression.getRightExpression() != null && inExpression.getRightExpression().toString().equals(SubstitutedParams)) {
+                if (inExpression.getRightExpression() != null && hasVariable(inExpression.getRightExpression().toString()) && !(inExpression.getRightExpression() instanceof ParenthesedSelect)) {
                     stringBuilder.append(SubstitutedSql);
                     return;
                 }
                 inExpression.getLeftExpression().accept(this);
+
                 if (inExpression.isNot()) {
                     getBuffer().append(" " + " NOT IN " + " ");
                 } else {
                     getBuffer().append(" IN ");
                 }
-                if (inExpression.getRightItemsList() != null) {
-                    getBuffer().append(inExpression.getRightItemsList());
-                }
-                if (inExpression.getRightExpression() != null) {
-                    getBuffer().append(" ( ");
+                if (inExpression.getRightExpression() != null && inExpression.getRightExpression() instanceof ParenthesedSelect) {
+                    try {
+                        ParenthesedSelect subSelect = (ParenthesedSelect) inExpression.getRightExpression();
+                        Select select = (Select) CCJSqlParserUtil.parse(removeVariables(subSelect.getPlainSelect().toString(), ""));
+                        subSelect.setSelect(select);
+                        inExpression.setRightExpression(subSelect);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                     inExpression.getRightExpression().accept(this);
-                    getBuffer().append(" )");
+                }
+                if (inExpression.getRightExpression() instanceof ParenthesedExpressionList) {
+                    buffer.append(inExpression.getRightExpression());
                 }
             }
 
-
             @Override
-            public void visit(SubSelect subSelect) {
+            public void visit(ParenthesedSelect subSelect) {
                 StringBuilder stringBuilder = new StringBuilder();
                 Expression in = ((PlainSelect) subSelect.getSelectBody()).getWhere();
                 if (in instanceof BinaryExpression && hasVariable(in.toString())) {
@@ -2973,6 +2838,11 @@ public class DataSetTableService {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+
+            @Override
+            public void visit(Select selectBody) {
+                getBuffer().append(selectBody.toString());
             }
 
 
@@ -3015,8 +2885,7 @@ public class DataSetTableService {
 
     public void createAppCustomDorisView(String datasetInfo, String tableId) throws Exception {
         DataTableInfoDTO dataTableInfoDTO = new Gson().fromJson(datasetInfo, DataTableInfoDTO.class);
-        createDorisView(TableUtils.tableName(tableId), getCustomViewSQL(dataTableInfoDTO,
-                dataSetTableUnionService.listByTableId(dataTableInfoDTO.getList().get(0).getTableId())));
+        createDorisView(TableUtils.tableName(tableId), getCustomViewSQL(dataTableInfoDTO, dataSetTableUnionService.listByTableId(dataTableInfoDTO.getList().get(0).getTableId())));
     }
 
     public void createAppUnionDorisView(String datasetInfo, String tableId) throws Exception {
@@ -3118,6 +2987,9 @@ public class DataSetTableService {
     }
 
     private String cellType(String value) {
+        if (value.length() > 19) {
+            return "TEXT";
+        }
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             sdf.parse(value);

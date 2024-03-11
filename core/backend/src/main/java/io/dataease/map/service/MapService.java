@@ -1,8 +1,6 @@
 package io.dataease.map.service;
 
-import cn.hutool.core.collection.CollectionUtil;
-import cn.hutool.core.io.FileUtil;
-import io.dataease.commons.exception.DEException;
+
 import io.dataease.commons.utils.CommonBeanFactory;
 import io.dataease.listener.util.CacheUtils;
 import io.dataease.map.dto.entity.AreaEntity;
@@ -10,6 +8,9 @@ import io.dataease.map.dto.request.MapNodeRequest;
 import io.dataease.map.utils.MapUtils;
 import io.dataease.plugins.common.base.domain.AreaMappingGlobal;
 import io.dataease.plugins.common.base.domain.AreaMappingGlobalExample;
+import io.dataease.plugins.common.exception.DataEaseException;
+import io.dataease.plugins.common.util.FileUtil;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -50,7 +51,7 @@ public class MapService {
                 return areaEntity.getChildren();
             }
 
-            if (CollectionUtil.isNotEmpty(areaEntity.getChildren())) {
+            if (CollectionUtils.isNotEmpty(areaEntity.getChildren())) {
                 List<AreaEntity> areaEntities = entitiesByPid(areaEntity.getChildren(), pid);
                 if (null != areaEntities) {
                     return areaEntities;
@@ -96,7 +97,7 @@ public class MapService {
         Set<String> sets = nodes.stream().flatMap(node -> codesByNode(node, pLevel).stream()).collect(Collectors.toSet());
         sets.forEach(code -> {
             String countryCode = code.substring(0, 3);
-            String path = rootGeoPath + "/full/" + countryCode + "/" + code +"_full.json";
+            String path = rootGeoPath + "/full/" + countryCode + "/" + code + "_full.json";
             if (FileUtil.exist(path)) {
                 FileUtil.del(path);
             }
@@ -107,19 +108,19 @@ public class MapService {
         Set<String> sets = new TreeSet<>();
 
         if (pLevel == 2) {
-            if(StringUtils.isNotBlank(node.getProvinceCode())) sets.add(node.getProvinceCode());
-            if(StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
-            if(StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
+            if (StringUtils.isNotBlank(node.getProvinceCode())) sets.add(node.getProvinceCode());
+            if (StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
+            if (StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
         } else if (pLevel == 3) {
-            if(StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
-            if(StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
+            if (StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
+            if (StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
         } else if (pLevel == 4) {
-            if(StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
+            if (StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
         } else {
-            if(StringUtils.isNotBlank(node.getCountryCode())) sets.add(node.getCountryCode());
-            if(StringUtils.isNotBlank(node.getProvinceCode())) sets.add(node.getProvinceCode());
-            if(StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
-            if(StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
+            if (StringUtils.isNotBlank(node.getCountryCode())) sets.add(node.getCountryCode());
+            if (StringUtils.isNotBlank(node.getProvinceCode())) sets.add(node.getProvinceCode());
+            if (StringUtils.isNotBlank(node.getCityCode())) sets.add(node.getCityCode());
+            if (StringUtils.isNotBlank(node.getCountyCode())) sets.add(node.getCountyCode());
         }
         return sets;
     }
@@ -132,7 +133,7 @@ public class MapService {
         AreaMappingGlobalExample example = new AreaMappingGlobalExample();
         AreaMappingGlobal curRoot = new AreaMappingGlobal();
         List<AreaMappingGlobal> nodes = null;
-        if(pLevel == 0) {
+        if (pLevel == 0) {
             nodes = MapUtils.selectByExample(example);
             MapUtils.deleteByExample(example);
             delFileByNodes(nodes, pLevel);
@@ -147,7 +148,7 @@ public class MapService {
             MapUtils.deleteByExample(example);
             example.clear();
             example.createCriteria().andCountryCodeEqualTo(pCode);
-            if (!MapUtils.exampleExist(example) && CollectionUtil.isNotEmpty(nodes)) {
+            if (!MapUtils.exampleExist(example) && CollectionUtils.isNotEmpty(nodes)) {
                 AreaMappingGlobal template = nodes.get(0);
                 curRoot.setCountryCode(template.getCountryCode());
                 curRoot.setCountryName(template.getCountryName());
@@ -163,7 +164,7 @@ public class MapService {
             example.clear();
             example.createCriteria().andProvinceCodeEqualTo(pCode);
 
-            if (!MapUtils.exampleExist(example) && CollectionUtil.isNotEmpty(nodes)) {
+            if (!MapUtils.exampleExist(example) && CollectionUtils.isNotEmpty(nodes)) {
                 AreaMappingGlobal template = nodes.get(0);
                 curRoot.setCountryCode(template.getCountryCode());
                 curRoot.setCountryName(template.getCountryName());
@@ -180,7 +181,7 @@ public class MapService {
             example.clear();
             example.createCriteria().andProvinceCodeEqualTo(pCode);
 
-            if (!MapUtils.exampleExist(example) && CollectionUtil.isNotEmpty(nodes)) {
+            if (!MapUtils.exampleExist(example) && CollectionUtils.isNotEmpty(nodes)) {
                 AreaMappingGlobal template = nodes.get(0);
                 curRoot.setCountryCode(template.getCountryCode());
                 curRoot.setCountryName(template.getCountryName());
@@ -199,20 +200,21 @@ public class MapService {
         long size = file.getSize();
         String name = file.getOriginalFilename();
         if (size / 1024 / 1024 > 30) {
-            DEException.throwException("large file that exceed 30M is not supported");
+            DataEaseException.throwException("large file that exceed 30M is not supported");
         }
         if (!StringUtils.endsWith(name, ".json")) {
-            DEException.throwException("only json file supported");
+            DataEaseException.throwException("only json file supported");
         }
     }
+
     @Transactional
-    public void saveMapNode(MapNodeRequest request, MultipartFile file) throws Exception{
+    public void saveMapNode(MapNodeRequest request, MultipartFile file) throws Exception {
         validateFile(file);
         String pCode = request.getPcode();
         Integer plevel = request.getPlevel();
         String code = request.getCode();
 
-        if(StringUtils.isBlank(code)) {
+        if (StringUtils.isBlank(code)) {
             String newAreaCode = generateAreaCode(pCode);
             request.setCode(newAreaCode);
         }
@@ -222,20 +224,18 @@ public class MapService {
 
         if (plevel == 1) {
             example.createCriteria().andCountryCodeEqualTo(code);
-        }
-        else if (plevel == 2) {
+        } else if (plevel == 2) {
             example.createCriteria().andCountryCodeEqualTo(pCode).andProvinceCodeEqualTo(code);
-        }
-        else if (plevel == 3) {
+        } else if (plevel == 3) {
             example.createCriteria().andProvinceCodeEqualTo(pCode).andCityCodeEqualTo(code);
-        }else if (plevel == 4) {
+        } else if (plevel == 4) {
             example.createCriteria().andCityCodeEqualTo(pCode).andCountyCodeEqualTo(code);
         } else {
-            DEException.throwException("只支持3级行政区");
+            DataEaseException.throwException("只支持3级行政区");
         }
         List<AreaMappingGlobal> lists = MapUtils.selectByExample(example);
-        if (CollectionUtil.isNotEmpty(lists)) {
-            DEException.throwException("区域代码已存在");
+        if (CollectionUtils.isNotEmpty(lists)) {
+            DataEaseException.throwException("区域代码已存在");
         }
 
         example.clear();
@@ -243,27 +243,26 @@ public class MapService {
         if (plevel == 1) {
             pExample.createCriteria().andCountryCodeIsNull().andProvinceCodeIsNull().andCityCodeIsNull().andCountyCodeIsNull();
             List<AreaMappingGlobal> existLists = MapUtils.selectByExample(pExample);
-            if (CollectionUtil.isNotEmpty(existLists)) {
+            if (CollectionUtils.isNotEmpty(existLists)) {
                 AreaMappingGlobal node = existLists.get(0);
                 node.setCountryCode(code);
                 node.setCountryName(request.getName());
                 MapUtils.update(node);
-            }else {
+            } else {
                 AreaMappingGlobal node = new AreaMappingGlobal();
                 node.setCountryCode(code);
                 node.setCountryName(request.getName());
                 MapUtils.addNode(node);
             }
-        }
-        else if (plevel == 2) {
+        } else if (plevel == 2) {
             pExample.createCriteria().andCountryCodeEqualTo(pCode).andProvinceCodeIsNull().andCityCodeIsNull().andCountyCodeIsNull();
             List<AreaMappingGlobal> existLists = MapUtils.selectByExample(pExample);
-            if (CollectionUtil.isNotEmpty(existLists)) {
+            if (CollectionUtils.isNotEmpty(existLists)) {
                 AreaMappingGlobal node = existLists.get(0);
                 node.setProvinceCode(code);
                 node.setProvinceName(request.getName());
                 MapUtils.update(node);
-            }else {
+            } else {
                 AreaMappingGlobal country = country(pCode);
                 AreaMappingGlobal node = new AreaMappingGlobal();
                 node.setCountryCode(pCode);
@@ -272,16 +271,15 @@ public class MapService {
                 node.setProvinceName(request.getName());
                 MapUtils.addNode(node);
             }
-        }
-        else if (plevel == 3) {
+        } else if (plevel == 3) {
             pExample.createCriteria().andProvinceCodeEqualTo(pCode).andCityCodeIsNull();
             List<AreaMappingGlobal> existLists = MapUtils.selectByExample(pExample);
-            if (CollectionUtil.isNotEmpty(existLists)) {
+            if (CollectionUtils.isNotEmpty(existLists)) {
                 AreaMappingGlobal node = existLists.get(0);
                 node.setCityCode(code);
                 node.setCityName(request.getName());
                 MapUtils.update(node);
-            }else {
+            } else {
                 AreaMappingGlobal province = province(pCode);
                 AreaMappingGlobal node = new AreaMappingGlobal();
                 node.setCountryCode(province.getCountryCode());
@@ -295,12 +293,12 @@ public class MapService {
         } else if (plevel == 4) {
             pExample.createCriteria().andCountryCodeEqualTo(pCode).andCountyCodeIsNull();
             List<AreaMappingGlobal> existLists = MapUtils.selectByExample(pExample);
-            if (CollectionUtil.isNotEmpty(existLists)) {
+            if (CollectionUtils.isNotEmpty(existLists)) {
                 AreaMappingGlobal node = existLists.get(0);
                 node.setCountyCode(code);
                 node.setCountyName(request.getName());
                 MapUtils.update(node);
-            }else {
+            } else {
                 AreaMappingGlobal city = city(pCode);
                 AreaMappingGlobal node = new AreaMappingGlobal();
                 node.setCountryCode(city.getCountryCode());
@@ -314,13 +312,13 @@ public class MapService {
                 MapUtils.addNode(node);
             }
         } else {
-            DEException.throwException("只支持3级行政区");
+            DataEaseException.throwException("只支持3级行政区");
         }
         uploadMapFile(file, code);
         CacheUtils.removeAll("sys_map_areas_global");
     }
 
-    public void uploadMapFile(MultipartFile file, String areaCode) throws Exception{
+    public void uploadMapFile(MultipartFile file, String areaCode) throws Exception {
 
         String countryCode = areaCode.substring(0, 3);
         String dir = rootGeoPath + "full/" + countryCode + "/";
@@ -329,7 +327,7 @@ public class MapService {
             fileDir.mkdirs();
         }
 
-        String targetPath = dir + areaCode+"_full.json";
+        String targetPath = dir + areaCode + "_full.json";
         File target = new File(targetPath);
         file.transferTo(target);
     }

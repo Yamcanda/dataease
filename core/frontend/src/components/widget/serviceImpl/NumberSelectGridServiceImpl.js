@@ -13,6 +13,7 @@ const dialogPanel = {
       multiple: false,
       placeholder: 'denumbergridselect.placeholder',
       viewIds: [],
+      parameters: [],
       data: [],
       key: 'id',
       label: 'text',
@@ -82,8 +83,13 @@ class NumberSelectGridServiceImpl extends WidgetService {
       }
     })
   }
-  getParam(element) {
-    const value = this.fillValueDerfault(element)
+  getParam(element, val) {
+    let value = null
+    if (val === null || val === '' || typeof val === 'undefined') {
+      value = this.fillValueDerfault(element)
+    } else {
+      value = Array.isArray(val) ? val : typeof val === 'string' ? val.split(',') : [val]
+    }
     const param = {
       component: element,
       value: !value ? [] : Array.isArray(value) ? value : value.toString().split(','),

@@ -381,6 +381,7 @@ export default {
     thumbnail: '缩略图',
     confirm_delete: '确认删除',
     delete_this_dashboard: '确认删除该仪表板吗?',
+    cancel_this_dashboard: '确认取消该默认仪表板吗?',
     delete_this_folder: '确认删除该目录吗?',
     confirm_stop: '确认停止',
     stop_success: '停止成功',
@@ -825,6 +826,11 @@ export default {
     edite_organization: '编辑组织'
   },
   system_parameter_setting: {
+    proxy_setting: '代理设置',
+    proxy_account: '代理账号',
+    proxy_pwd: '代理密码',
+    proxy_host: '代理服务地址',
+    proxy_port: '服务端口',
     email_server_config: '邮箱服务器配置',
     edit_success: '编辑成功',
     mailbox_service_settings: '邮件设置',
@@ -934,7 +940,8 @@ export default {
     edit_classification: '编辑分类',
     classification_name: '分类名称',
     by_event_details: '通过事件详情搜索',
-    password_input_error: '原始密码输入错误'
+    password_input_error: '原始密码输入错误',
+    log_live_time_error: '请填写1-4000整数'
   },
   chart: {
     empty_hide: '隐藏空值',
@@ -1110,7 +1117,9 @@ export default {
     asc: '升序',
     desc: '降序',
     sort: '排序',
+    default: '默认',
     filter: '过滤',
+    is_set: '已设置',
     none: '无',
     background: '背景',
     border: '边角',
@@ -1131,6 +1140,8 @@ export default {
     filter_not_empty: '非空字符串',
     filter_include: '包含',
     filter_not_include: '不包含',
+    filter_end_with: '结尾是',
+    filter_begin_with: '开头是',
     rose_type: '玫瑰图模式',
     radius_mode: '半径',
     area_mode: '面积',
@@ -1182,6 +1193,7 @@ export default {
     chart_bar_stack: '堆叠柱状图',
     chart_percentage_bar_stack: '百分比柱状图',
     chart_bar_horizontal: '横向柱状图',
+    chart_bar_time_range: '区间条形图',
     chart_bar_stack_horizontal: '横向堆叠柱状图',
     chart_percentage_bar_stack_horizontal: '横向百分比柱状图',
     chart_bidirectional_bar: '对称柱状图',
@@ -1219,6 +1231,9 @@ export default {
     axis_width: '轴线宽度',
     axis_type: '轴线类型',
     grid_show: '网格线显示',
+    dash_show: '虚线显示',
+    dash_width: '虚线宽度',
+    dash_offset: '虚线间距',
     grid_color: '网格线颜色',
     grid_width: '网格线宽度',
     grid_type: '网格线类型',
@@ -1280,6 +1295,7 @@ export default {
     select_map_range: '请选择地图范围',
     area: '地区',
     stack_item: '堆叠项',
+    aggregate: '聚合',
     placeholder_field: '拖动字段至此处',
     axis_label_rotate: '标签角度',
     chart_scatter_bubble: '气泡图',
@@ -1379,10 +1395,13 @@ export default {
     filter_type: '过滤方式',
     filter_value_can_not_str: '数值类型字段过滤值不能包含文本',
     enum_value_can_not_null: '字段枚举值不能为空',
+    column: '列',
+    table_freeze: '表格冻结',
     table_config: '表格配置',
     table_column_width_config: '列宽调整',
     table_column_adapt: '自适应',
     table_column_custom: '自定义',
+    table_column_fixed: '固定列宽',
     chart_table_pivot: '透视表',
     table_pivot_row: '数据行',
     field_error_tips: '该字段所对应的数据集原始字段发生变更（包括维度、指标，字段类型，字段被删除等），建议重新编辑',
@@ -1488,6 +1507,9 @@ export default {
     dynamic: '动态值',
     gauge_size_field_delete: '动态值中字段发生变更，请重新编辑',
     chart_group: '子类别',
+    chart_bar_time: '区间范围',
+    chart_bar_time2: '时间区间范围',
+    chart_bar_time_tip: '仅针对时间区间生效',
     chart_bar_group: '分组柱状图',
     chart_bar_group_stack: '分组堆叠柱状图',
     field_dynamic: '动态值',
@@ -1504,6 +1526,7 @@ export default {
     table_index_desc: '表头名称',
     table_row_tooltip: '行头提示',
     table_col_tooltip: '列头提示',
+    table_cell_tooltip: '单元格提示',
     total_sort: '总计排序',
     total_sort_none: '无',
     total_sort_asc: '升序',
@@ -1515,10 +1538,11 @@ export default {
     set_zero: '置为0',
     ignore_data: '隐藏空值',
     sub_dimension_tip: '该字段为必填项，且不应使用类别轴中的字段，若无需该字段，请选择基础图表进行展示，否则展示效果不理想。',
+    time_bar_tip: '该字段为必填项，且需要两个指标或者时间类型维度字段',
     drill_dimension_tip: '钻取字段仅支持数据集中的字段',
     table_scroll_tip: '明细表仅在分页模式为"下拉"时生效。',
     table_threshold_tip: '提示：请勿重复选择字段，若同一字段重复配置，则只有最后的字段配置生效',
-    table_column_width_tip: '列宽并非任何时候都能生效。<br/>容器宽度优先级高于列宽，即(表格容器宽度 / 列数 > 指定列宽)，则列宽优先取(容器宽度 / 列数)。',
+    table_column_width_tip: '固定列宽并非任何时候都能生效。<br/>容器宽度优先级高于列宽，即(表格容器宽度 / 列数 > 指定列宽)，则列宽优先取(容器宽度 / 列数)。',
     reference_field_tip: '引用字段以 "[" 开始， "]" 结束。<br/>请勿修改引用内容，否则将引用失败。<br/>若输入与引用字段相同格式的内容，将被当作引用字段处理。',
     scatter_tip: '该指标生效时，样式大小中的气泡大小属性将失效',
     scatter_group_tip: '仅当横轴内为指标时生效',
@@ -1578,7 +1602,8 @@ export default {
     gauge_axis_label: '刻度标签',
     word_size_range: '字号区间',
     word_spacing: '文字间隔',
-    axis_multi_select_tip: '按住 Ctrl/Cmd 键或者 Shift 键再点击可多选'
+    axis_multi_select_tip: '按住 Ctrl/Cmd 键或者 Shift 键再点击可多选',
+    needs_to_be_integer: '需要为整数'
   },
   dataset: {
     scope_edit: '仅编辑时生效',
@@ -1853,7 +1878,11 @@ export default {
       tip6: '使用数据集对应数据库类型所支持的函数，语法同对应数据库',
       tip7: '如日期格式化：MySQL使用DATE_FORMAT(date,format)；Oracle使用TO_DATE(X,[,fmt])',
       tip8: '非直连模式数据集，使用Doris数据库函数，可参考Doris官网'
-    }
+    },
+    set_key: '设置主键',
+    change_to_key: '设置为主键',
+    selecet_key: '选择主键',
+    no_set_key: '未设置主键'
   },
   driver: {
     driver: '驱动',
@@ -1865,7 +1894,9 @@ export default {
     show_info: '驱动信息',
     file_name: '文件名',
     version: '版本',
-    please_set_driverClass: '请指定驱动类'
+    please_set_driverClass: '请指定驱动类',
+    please_set_surpportVersions: '请输入支持的数据库大版本',
+    surpportVersions: '支持版本'
   },
   datasource: {
     data_source_configuration: '数据源配置',
@@ -2034,6 +2065,8 @@ export default {
     back_parent: '返回上一级'
   },
   panel: {
+    app_export_tips: '当前仪表板中[{0}]属于模版视图，无法导出，请先设置数据集！',
+    required_tips: '必填项不能为空！',
     filter_no_select: '过滤组件无需选择',
     first_item: '首项',
     forbidden_copy: '当前组件不允许复制',
@@ -2066,7 +2099,7 @@ export default {
     component_color: '组件配色',
     chart_title: '图表标题',
     filter_component: '过滤组件',
-    enable_refresh_view: '开启刷新',
+    enable_refresh_view: '数据刷新',
     enable_view_loading: '视图加载提示',
     image_size_tips: '图片请不要大于15M',
     image_add_tips: '只能插入图片',
@@ -2113,6 +2146,8 @@ export default {
     theme_color_dark: '深色',
     theme_color_light: '浅色',
     refresh_frequency: '刷新频率',
+    refresh_browser_frequency: '浏览器刷新',
+    refresh_browser_tips: '仅公共链接生效',
     card_color_matching: '卡片配色',
     table_color_matching: '表格配色',
     background_color: '背景颜色',
@@ -2224,6 +2259,7 @@ export default {
     export_to_app: '导出为应用',
     preview: '预览',
     fullscreen_preview: '全屏预览',
+    fullscreen_exit: '退出全屏',
     new_tab_preview: '新Tab页预览',
     select_panel_from_left: '请从左侧选择仪表板',
     template_nale: '模板名称',
@@ -2317,6 +2353,7 @@ export default {
     switch_picture: '更换图片',
     select_field: '选择视图字段',
     remove_all_linkage: '清除所有联动',
+    back_to_top: '返回顶部',
     exit_un_march_linkage_field: '存在未匹配联动关系的字段',
     details: '详情',
     setting: '设置',
@@ -2766,7 +2803,10 @@ export default {
     range_view: '展示数据',
     range_all: '全部数据',
     execute_now: '立即执行',
-    fire_now_success: '任务发起成功'
+    fire_now_success: '任务发起成功',
+    larkgroups: '飞书群',
+    ext_wait_time: '加载仪表板额外等待时间(单位:秒)',
+    wat_time_limit: '额外等待时间必须是[0 - 30]之间整数'
   },
   dynamic_time: {
     set_default: '设置默认值',

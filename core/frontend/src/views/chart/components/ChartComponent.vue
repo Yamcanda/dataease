@@ -144,7 +144,9 @@ export default {
         'line',
         'line-stack',
         'scatter'
-      ]
+      ],
+      resizeTimer: null,
+      renderTimer: null
     }
   },
 
@@ -259,6 +261,9 @@ export default {
         return
       }
       this.currentSeriesId = seriesId
+    },
+    clearLinkage() {
+      this.reDrawView()
     },
     reDrawView() {
       if (this.linkageActiveParam) {
@@ -498,7 +503,11 @@ export default {
       // 指定图表的配置项和数据
       const chart = this.myChart
       this.setBackGroundBorder()
-      setTimeout(chart.setOption(option, true), 500)
+      this.renderTimer && clearTimeout(this.renderTimer)
+      this.renderTimer = setTimeout(() => {
+        chart.clear()
+        chart.setOption(option, true)
+      }, 500)
       window.removeEventListener('resize', chart.resize)
     },
     setBackGroundBorder() {
@@ -511,9 +520,16 @@ export default {
     },
     chartResize() {
       // 指定图表的配置项和数据
-      const chart = this.myChart
-      chart.resize()
-      this.reDrawMap()
+      this.resizeTimer && clearTimeout(this.resizeTimer)
+      this.resizeTimer = setTimeout(() => {
+        const { offsetWidth, offsetHeight } = document.getElementById(this.chartId)
+        const chartWidth = this.myChart.getWidth()
+        const chartHeight = this.myChart.getHeight()
+        if (offsetWidth !== chartWidth || offsetHeight !== chartHeight) {
+          this.myChart.resize()
+          this.reDrawMap()
+        }
+      }, 100)
     },
     reDrawMap() {
       const chart = this.chart

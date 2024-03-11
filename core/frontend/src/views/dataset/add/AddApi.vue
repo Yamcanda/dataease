@@ -73,43 +73,36 @@
           v-model="checkTableList"
           size="small"
         >
-          <el-tooltip
+          <div
             v-for="t in tableData"
             :key="t.name"
-            :disabled="t.enableCheck"
-            effect="dark"
-            :content="$t('dataset.table_already_add_to') + ': ' + t.datasetPath"
-            placement="right"
+            :class="[
+              { active: activeName === t.name, 'not-allow': !t.enableCheck }
+            ]"
+            class="item"
+            :title="t.name"
+            @click="setActiveName(t)"
           >
-            <div
-              :class="[
-                { active: activeName === t.name, 'not-allow': !t.enableCheck }
-              ]"
-              class="item"
-              :title="t.name"
-              @click="setActiveName(t)"
+            <svg-icon
+              v-if="!t.enableCheck"
+              icon-class="Checkbox"
+              style="margin-right: 8px"
+            />
+            <el-checkbox
+              v-else
+              :label="t.name"
+            />
+            <span class="label">{{ showTableNameWithComment(t) }}</span>
+            <span
+              v-if="t.nameExist"
+              class="error-name-exist"
             >
               <svg-icon
-                v-if="!t.enableCheck"
-                icon-class="Checkbox"
-                style="margin-right: 8px"
+                icon-class="exclamationmark"
+                class="ds-icon-scene"
               />
-              <el-checkbox
-                v-else
-                :label="t.name"
-              />
-              <span class="label">{{ showTableNameWithComment(t) }}</span>
-              <span
-                v-if="t.nameExist"
-                class="error-name-exist"
-              >
-                <svg-icon
-                  icon-class="exclamationmark"
-                  class="ds-icon-scene"
-                />
-              </span>
-            </div>
-          </el-tooltip>
+            </span>
+          </div>
         </el-checkbox-group>
       </div>
     </div>
@@ -428,20 +421,25 @@ export default {
       const tables = []
       const mode = this.mode
       const syncType = this.syncType
-      this.checkTableList.forEach((name) => {
-        const datasetName = this.tables.find(
-          (ele) => ele.name === name
-        ).datasetName
+
+      for (let i = 0; i < this.checkTableList.length; i++) {
+        const table = this.tables.find(
+            (ele) => ele.name === this.checkTableList[i]
+        )
+        if(table.setKey && table.keys.length === 0 ){
+          this.openMessageSuccess(this.checkTableList[i] + this.$t('dataset.no_set_key')  , 'error')
+          return
+        }
         tables.push({
-          name: datasetName,
+          name: table.datasetName,
           sceneId: sceneId,
           dataSourceId: dataSourceId,
           type: 'api',
           syncType: syncType,
           mode: parseInt(mode),
-          info: JSON.stringify({ table: name })
+          info: JSON.stringify({ table: this.checkTableList[i], setKey: table.setKey, keys: table.keys})
         })
-      })
+      }
       post('/dataset/table/batchAdd', tables)
         .then((response) => {
           this.openMessageSuccess('deDataset.set_saved_successfully')
@@ -498,7 +496,7 @@ export default {
     height: 100%;
     width: 240px;
     padding: 16px 12px;
-    font-family: PingFang SC;
+    font-family: AlibabaPuHuiTi;
     border-right: 1px solid rgba(31, 35, 41, 0.15);
 
     .select-ds {
@@ -536,7 +534,7 @@ export default {
         align-items: center;
         box-sizing: border-box;
         padding: 12px;
-        font-family: PingFang SC;
+        font-family: AlibabaPuHuiTi;
         font-size: 14px;
         font-weight: 400;
         color: var(--deTextPrimary, #1f2329);
@@ -581,7 +579,7 @@ export default {
   }
 
   .table-detail {
-    font-family: PingFang SC;
+    font-family: AlibabaPuHuiTi;
     flex: 1;
     overflow: hidden;
 
@@ -617,6 +615,10 @@ export default {
         width: 420px;
         margin-left: 12px;
       }
+
+      .el-checkbox{
+        margin-left: 12px;
+      }
     }
 
     .data {
@@ -629,7 +631,7 @@ export default {
       .result-num {
         font-weight: 400;
         display: inline-block;
-        font-family: PingFang SC;
+        font-family: AlibabaPuHuiTi;
         color: var(--deTextSecondary, #646a73);
         margin-bottom: 16px;
       }

@@ -1,6 +1,7 @@
 <template>
   <div
     :id="previewMainDomId"
+    :ref="previewOutRefId"
     class="bg"
     :style="customStyle"
     @scroll="canvasScroll"
@@ -8,8 +9,19 @@
     <canvas-opt-bar
       v-if="canvasId==='canvas-main'"
       ref="canvas-opt-bar"
+      :terminal="terminal"
+      :canvas-style-data="canvasStyleData"
+      :back-to-top-btn="backToTopBtnShow"
+      @link-export-pdf="downloadAsPDF"
+      @back-to-top="backToTop"
+    />
+    <link-opt-bar
+      v-if="canvasId==='canvas-main'"
+      ref="link-opt-bar"
+      :terminal="terminal"
       :canvas-style-data="canvasStyleData"
       @link-export-pdf="downloadAsPDF"
+      @back-to-top="backToTop"
     />
     <div
       :id="previewDomId"
@@ -59,6 +71,7 @@
           :screen-shot="screenShot"
           :canvas-style-data="canvasStyleData"
           :show-position="showPosition"
+          :user-id="userId"
           @filter-loaded="filterLoaded"
         />
       </div>
@@ -112,15 +125,39 @@
         v-if="chartDetailsVisible"
         style="position: absolute;right: 70px;top:15px"
       >
-        <el-button
-          v-if="showChartInfoType==='enlarge' && hasDataPermission('export',panelInfo.privileges)&& showChartInfo && showChartInfo.type !== 'symbol-map'"
-          class="el-icon-picture-outline"
-          size="mini"
-          :disabled="imageDownloading"
-          @click="exportViewImg"
-        >
-          {{ $t('chart.export_img') }}
-        </el-button>
+        <span v-if="showChartInfoType==='enlarge' && hasDataPermission('export',panelInfo.privileges)&& showChartInfo && showChartInfo.type !== 'symbol-map'">
+          <span style="font-size: 12px">
+            导出分辨率
+          </span>
+          <el-select
+            v-model="pixel"
+            style="width: 120px; margin-right: 8px; margin-top: -1px"
+            :popper-append-to-body="false"
+            size="mini"
+          >
+            <el-option-group
+              v-for="group in pixelOptions"
+              :key="group.label"
+              :label="group.label"
+            >
+              <el-option
+                v-for="item in group.options"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-option-group>
+          </el-select>
+          <el-button
+            class="el-icon-picture-outline"
+            size="mini"
+            :disabled="imageDownloading"
+            @click="exportViewImg"
+          >
+            {{ $t('chart.export_img') }}
+          </el-button>
+        </span>
+
         <el-button
           v-if="showChartInfoType==='details'&& hasDataPermission('export',panelInfo.privileges)"
           size="mini"
@@ -136,6 +173,7 @@
       <user-view-dialog
         v-if="chartDetailsVisible"
         ref="userViewDialog-canvas-main"
+        :user-id="userId"
         :chart="showChartInfo"
         :chart-table="showChartTableInfo"
         :canvas-style-data="canvasStyleData"
@@ -167,10 +205,11 @@ import { listenGlobalKeyDownPreview } from '@/components/canvas/utils/shortcutKe
 import UserViewDialog from '@/components/canvas/customComponent/UserViewDialog'
 import { hexColorToRGBA } from '@/views/chart/chart/util'
 import { isMobile } from '@/utils/index'
+import LinkOptBar from '@/components/canvas/components/editor/LinkOptBar'
 
 const erd = elementResizeDetectorMaker()
 export default {
-  components: { UserViewDialog, ComponentWrapper, CanvasOptBar, PDFPreExport },
+  components: { LinkOptBar, UserViewDialog, ComponentWrapper, CanvasOptBar, PDFPreExport },
   model: {
     prop: 'show',
     event: 'change'
@@ -239,6 +278,7 @@ export default {
   },
   data() {
     return {
+      backToTopBtnShow: false,
       imageDownloading: false,
       chartDetailsVisible: false,
       canvasMain: null,
@@ -251,6 +291,7 @@ export default {
       previewMainDomId: 'preview-main-' + this.canvasId,
       previewDomId: 'preview-' + this.canvasId,
       previewRefId: 'preview-ref-' + this.canvasId,
+      previewOutRefId: 'preview-out-ref-' + this.canvasId,
       previewTempDomId: 'preview-temp-' + this.canvasId,
       previewTempRefId: 'preview-temp-ref-' + this.canvasId,
       isShowPreview: false,
@@ -276,6 +317,7 @@ export default {
       mainWidth: '100%',
       mainHeight: '100%',
       searchCount: 0,
+      filterMapCache: {},
       // 布局展示 1.pc pc端布局 2.mobile 移动端布局
       terminal: 'pc',
       buttonFilterMap: null,
@@ -286,7 +328,44 @@ export default {
       pdfTemplateSelectedIndex: 0,
       pdfTemplateContent: '',
       templateInfo: {},
-      pdfTemplateAll: []
+      pdfTemplateAll: [],
+      pixelOptions: [
+        {
+          label: 'Windows(16:9)',
+          options: [
+            {
+              value: '1920 * 1080',
+              label: '1920 * 1080'
+            },
+            {
+              value: '1600 * 900',
+              label: '1600 * 900'
+            },
+            {
+              value: '1280 * 720',
+              label: '1280 * 720'
+            }
+          ]
+        },
+        {
+          label: 'MacOS(16:10)',
+          options: [
+            {
+              value: '2560 * 1600',
+              label: '2560 * 1600'
+            },
+            {
+              value: '1920 * 1200',
+              label: '1920 * 1200'
+            },
+            {
+              value: '1680 * 1050',
+              label: '1680 * 1050'
+            }
+          ]
+        }
+      ],
+      pixel: '1280 * 720'
     }
   },
   computed: {
@@ -383,6 +462,21 @@ export default {
     },
     filterMap() {
       const result = buildFilterMap(this.componentData)
+      Object.keys(result).forEach(ele => {
+        if (this.filterMapCache[ele]?.length) {
+          result[ele].forEach(itx => {
+            const condition = this.filterMapCache[ele].find(item => item.componentId === itx.componentId && itx.cacheObj)
+            if (condition) {
+              itx.cacheObj = condition.cacheObj
+            }
+          })
+          if (!result[ele].length) {
+            result[ele] = this.filterMapCache[ele]
+          }
+        } else {
+          this.filterMapCache[ele] = result[ele]
+        }
+      })
       if (this.searchButtonInfo && this.searchButtonInfo.buttonExist && !this.searchButtonInfo.autoTrigger && this.searchButtonInfo.relationFilterIds) {
         for (const key in result) {
           if (Object.hasOwnProperty.call(result, key)) {
@@ -416,14 +510,23 @@ export default {
     },
     mainHeight: {
       handler(newVal, oldVla) {
-        const _this = this
-        _this.$nextTick(() => {
-          if (_this.screenShotStatues) {
-            _this.initWatermark('preview-temp-canvas-main')
-          } else {
-            _this.initWatermark()
-          }
+        this.$nextTick(() => {
+          this.reloadWatermark()
         })
+      },
+      deep: true
+    },
+    canvasInfoTempStyle: {
+      handler(newVal, oldVla) {
+        this.$nextTick(() => {
+          this.reloadWatermark()
+        })
+      },
+      deep: true
+    },
+    screenShotStatues: {
+      handler(newVal, oldVla) {
+        this.reloadWatermark()
       }
     }
   },
@@ -445,7 +548,6 @@ export default {
     this.canvasId === 'canvas-main' && bus.$on('pcChartDetailsDialog', this.openChartDetailsDialog)
     bus.$on('trigger-search-button', this.triggerSearchButton)
     bus.$on('trigger-reset-button', this.triggerResetButton)
-    bus.$on('trigger-filter-loaded', this.triggerFilterLoaded)
     this.initPdfTemplate()
   },
   beforeDestroy() {
@@ -455,23 +557,25 @@ export default {
     if (this.$refs[this.previewRefId]) {
       erd.uninstall(this.$refs[this.previewRefId])
     }
-    erd.uninstall(this.canvasMain)
-    erd.uninstall(this.tempCanvas)
+    this.canvasMain && erd.uninstall(this.canvasMain)
+    this.tempCanvas && erd.uninstall(this.tempCanvas)
     clearInterval(this.timer)
     this.canvasId === 'canvas-main' && bus.$off('pcChartDetailsDialog', this.openChartDetailsDialog)
     bus.$off('trigger-search-button', this.triggerSearchButton)
     bus.$off('trigger-reset-button', this.triggerResetButton)
-    bus.$off('trigger-filter-loaded', this.triggerFilterLoaded)
   },
   methods: {
-    triggerFilterLoaded({ canvasIdStr, panelId, p }) {
-      if (this.panelInfo.id === panelId && !canvasIdStr.includes(this.canvasId)) {
-        this.filterLoaded(p, canvasIdStr)
+    reloadWatermark() {
+      if (this.screenShotStatues) {
+        this.initWatermark('preview-temp-canvas-main')
+      } else {
+        this.initWatermark()
       }
     },
-    filterLoaded(p, canvasIdStr = '') {
+    filterLoaded(p) {
       buildAfterFilterLoaded(this.filterMap, p)
-      bus.$emit('trigger-filter-loaded', { canvasIdStr: (canvasIdStr + this.canvasId), panelId: this.panelInfo.id, p })
+      this.filterMapCache = {}
+      this.getWrapperChildRefs().forEach(item => item.triggerFilterLoaded(p))
     },
     getWrapperChildRefs() {
       return this.$refs['viewWrapperChild']
@@ -576,7 +680,23 @@ export default {
 
       result.relationFilterIds = matchFilters.map(item => item.id)
 
+      let matchViewIds = []
+      for (let index = 0; index < matchFilters.length; index++) {
+        const item = matchFilters[index]
+        if (!item.options.attrs.viewIds?.length) {
+          matchViewIds = null
+          break
+        }
+        matchViewIds = matchViewIds.concat(item.options.attrs.viewIds)
+      }
       let viewKeyMap = buildViewKeyMap(panelItems)
+      if (matchViewIds) {
+        matchViewIds = [...new Set(matchViewIds)]
+        const keys = Object.keys(viewKeyMap).filter(key => !matchViewIds.includes(key))
+        keys.forEach(key => {
+          delete viewKeyMap[key]
+        })
+      }
       viewKeyMap = this.buildViewKeyFilters(matchFilters, viewKeyMap, isClear)
       result.filterMap = viewKeyMap
       return result
@@ -604,6 +724,7 @@ export default {
         let vValid = valueValid(condition)
         const required = element.options.attrs.required
         condition.requiredInvalid = required && !vValid
+        condition['triggerId'] = uuid.v1()
         vValid = vValid || required
         const filterComponentId = condition.componentId
         const conditionCanvasId = wrapperChild.getCanvasId && wrapperChild.getCanvasId()
@@ -682,8 +803,8 @@ export default {
       }
       if (this.isMainCanvas()) {
         this.$store.commit('setPreviewCanvasScale', {
-          scaleWidth: this.canvasStyleData.autoSizeAdaptor ? (this.scaleWidth / 100) : 1,
-          scaleHeight: this.canvasStyleData.autoSizeAdaptor ? (this.scaleHeight / 100) : 1
+          scaleWidth: (this.canvasStyleData.autoSizeAdaptor || this.terminal === 'mobile') ? (this.scaleWidth / 100) : 1,
+          scaleHeight: (this.canvasStyleData.autoSizeAdaptor || this.terminal === 'mobile') ? (this.scaleHeight / 100) : 1
         })
       }
       this.handleScaleChange()
@@ -707,21 +828,34 @@ export default {
       if (this.componentData) {
         const componentData = deepCopy(this.componentData)
         componentData.forEach(component => {
-          Object.keys(component.style).forEach(key => {
-            if (this.needToChangeHeight.includes(key)) {
-              component.style[key] = this.format(component.style[key], this.scaleHeight)
-            }
-            if (this.needToChangeWidth.includes(key)) {
-              component.style[key] = this.format(component.style[key], this.scaleWidth)
-            }
-            if (this.needToChangeInnerWidth.includes(key)) {
-              if ((key === 'fontSize' || key === 'activeFontSize') && (this.terminal === 'mobile' || ['custom', 'v-text'].includes(component.type))) {
-                // do nothing 移动端字符大小无需按照比例缩放，当前保持不变(包括 v-text 和 过滤组件)
-              } else {
-                component.style[key] = this.formatPoint(component.style[key], this.previewCanvasScale.scalePointWidth)
+          if (!this.isMainCanvas() && component.type === 'custom' && component.options?.attrs?.selectFirst && this.format(component.style.width, this.scaleWidth) < 80) {
+            // do continue
+          } else {
+            Object.keys(component.style).forEach(key => {
+              if (this.needToChangeHeight.includes(key)) {
+                component.style[key] = this.format(component.style[key], this.scaleHeight)
               }
-            }
-          })
+              if (this.needToChangeWidth.includes(key)) {
+                component.style[key] = this.format(component.style[key], this.scaleWidth)
+              }
+              if (this.needToChangeInnerWidth.includes(key)) {
+                if ((key === 'fontSize' || key === 'activeFontSize') && (this.terminal === 'mobile' || ['custom'].includes(component.type))) {
+                  // do nothing 移动端字符大小无需按照比例缩放，当前保持不变(包括 v-text 和 过滤组件)
+                } else {
+                  if (key === 'fontSize' && component.component !== 'de-tabs') {
+                    component.style[key] = this.formatPoint(component.style[key], this.previewCanvasScale.scalePointWidth * 1.4)
+                  } else {
+                    component.style[key] = this.formatPoint(component.style[key], this.previewCanvasScale.scalePointWidth)
+                  }
+                }
+              }
+            })
+          }
+
+          const maxWidth = this.canvasStyleData.width * this.scaleWidth / 100
+          if (component.style['width'] > maxWidth) {
+            component.style['width'] = maxWidth
+          }
         })
         this.componentDataShow = componentData
         this.$nextTick(() => (eventBus.$emit('resizing', '')))
@@ -732,16 +866,13 @@ export default {
     },
     exportViewImg() {
       this.imageDownloading = true
-      this.$refs['userViewDialog-canvas-main'].exportViewImg(() => {
+      this.$refs['userViewDialog-canvas-main'].exportViewImg(this.pixel, () => {
         this.imageDownloading = false
       })
     },
     deselectCurComponent(e) {
       if (!this.isClickComponent) {
         this.$store.commit('setCurComponent', { component: null, index: null })
-        if (this.$refs?.['canvas-opt-bar']) {
-          this.$refs['canvas-opt-bar'].setWidgetStatus()
-        }
       }
     },
     handleMouseDown() {
@@ -751,6 +882,8 @@ export default {
       this.$store.commit('openMobileLayout')
     },
     canvasScroll() {
+      // 当滚动距离超过 100px 时显示返回顶部按钮，否则隐藏按钮
+      this.backToTopBtnShow = this.$refs[this.previewOutRefId].scrollTop > 200
       bus.$emit('onScroll')
     },
     initListen() {
@@ -780,6 +913,9 @@ export default {
         }
       }, 1500)
     },
+    backToTop() {
+      this.$refs[this.previewOutRefId].scrollTop = 0
+    },
     downloadAsPDF() {
       this.dataLoading = true
       this.$emit('change-load-status', true)
@@ -800,6 +936,9 @@ export default {
             if (snapshot !== '') {
               this.snapshotInfo = snapshot
               this.pdfExportShow = true
+            }
+            if (this.$refs?.['link-opt-bar']) {
+              this.$refs['link-opt-bar'].setWidgetStatus()
             }
           })
         }, 2500)

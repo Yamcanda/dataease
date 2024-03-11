@@ -213,7 +213,7 @@
                 <el-option
                   v-for="item in driverList"
                   :key="item.id"
-                  :label="item.name"
+                  :label="item.nameAlias"
                   :value="item.id"
                   :disabled="!item.driverClass"
                 />
@@ -694,6 +694,14 @@ export default {
     })
   },
   methods: {
+    async cancelEdit() {
+      const params = this.configFromTabs?.id ? this.configFromTabs : this.$route.query
+      let { id, showModel } = params
+      await this.getDatasourceDetail(id, showModel)
+      this.edit(this.params)
+      this.changeType(true)
+      this.editDatasource(false)
+    },
     editDatasource(type) {
       this.$emit('update:canEdit', type)
       this.disabled = !type
@@ -1225,11 +1233,6 @@ export default {
           if (this.datasourceType.isJdbc) {
             listDriverByType(this.datasourceType.type).then((res) => {
               this.driverList = []
-              this.driverList.push({
-                id: 'default',
-                name: 'Default',
-                driverClass: 'Default'
-              })
               this.driverList = this.driverList.concat(res.data)
             })
           }
@@ -1391,7 +1394,7 @@ export default {
   box-shadow: 2px 2px 4px rgba(31, 35, 41, 0.08);
 
   .name {
-    font-family: 'PingFang SC';
+    font-family: 'AlibabaPuHuiTi';
     font-style: normal;
     font-weight: 500;
     font-size: 16px;

@@ -11,11 +11,11 @@
     <properties>
         <project.finalName>${project.artifactId}-${project.version}</project.finalName>
         <project.build.bootstrap>bootstrap</project.build.bootstrap>
-        <dataease.version>1.18.13</dataease.version>
+        <dataease.version>1.18.16</dataease.version>
     </properties>
 
     <name>dataease</name>
-    
+
     <modules>
         <module>sdk</module>
         <module>core</module>
@@ -60,38 +60,5 @@
         </plugins>
 
     </build>
-
-    <!-- <profiles>
-        <profile>
-            <id>standalone</id>
-            <properties>
-                <profiles.active>standalone</profiles.active>
-            </properties>
-            <build>
-	            <plugins>
-	                    <plugin>
-	                        <groupId>org.apache.maven.plugins</groupId>
-	                        <artifactId>maven-assembly-plugin</artifactId>
-	                        <version>3.3.0</version>
-	                        <executions>
-	                            <execution>
-	                                <phase>package</phase>
-	                                <goals>
-	                                    <goal>single</goal>
-	                                </goals>
-	                                <configuration>
-	                                    <appendAssemblyId>false</appendAssemblyId>
-	                                    <finalName>${project.finalName}</finalName>
-	                                    <descriptors>
-	                                        <descriptor>assembly/assembly-standalone-zip.xml</descriptor>
-	                                    </descriptors>
-	                                </configuration>
-	                            </execution>
-	                        </executions>
-	                    </plugin>
-	                </plugins>
-                </build>
-        </profile>
-    </profiles> -->
 
 </project>

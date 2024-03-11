@@ -1,6 +1,5 @@
 package io.dataease.plugins.view.official.handler;
 
-import com.google.gson.Gson;
 import io.dataease.plugins.common.constants.datasource.SQLConstants;
 import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDTO;
 import io.dataease.plugins.common.util.ConstantsUtil;
@@ -61,6 +60,7 @@ public class ChartMixViewStatHandler implements PluginViewStatHandler {
 
         // 处理视图中字段过滤
         String customWheres = baseService.customWhere(dsType, pluginViewParam.getPluginChartFieldCustomFilters(), tableObj);
+
         // 处理仪表板字段过滤
         String panelWheres = baseService.panelWhere(dsType, pluginViewParam.getPluginChartExtFilters(), tableObj);
         // 构建sql所有参数
