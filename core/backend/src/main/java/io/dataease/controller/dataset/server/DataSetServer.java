@@ -6,14 +6,11 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -22,17 +19,15 @@ import io.dataease.auth.config.ApiProperties;
 import io.dataease.controller.ResultHolder;
 import io.dataease.controller.dataset.api.DataSetApi;
 import io.dataease.controller.request.dataset.DataSetExportRequest;
-import io.dataease.dto.dataset.DataSetApiUpdateDTO;
+import io.dataease.dto.dataset.FieldNamesUpdateDTO;
 import io.dataease.plugins.common.base.domain.DatasetTable;
+import io.dataease.plugins.common.constants.DatasetType;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
-import io.dataease.plugins.common.util.ClassloaderResponsity;
 import io.dataease.service.dataset.DataSetTableService;
 
 @RestController
 public class DataSetServer implements DataSetApi {
 
-	private static final Logger logger = LoggerFactory.getLogger(ClassloaderResponsity.class);
-	
 	@Resource
     private DataSetTableService dataSetTableService;
 	
@@ -57,14 +52,22 @@ public class DataSetServer implements DataSetApi {
         }
         
         // 更新语句参数
-        List<DataSetApiUpdateDTO> apiUpdateDtoList = Lists.newArrayList();
-        if(!ObjectUtils.isEmpty(params.get("apiUpdateDtoList"))) {
+        List<FieldNamesUpdateDTO> fieldNameList = Lists.newArrayList();
+        if(!ObjectUtils.isEmpty(params.get("fieldNameList"))) {
         	Gson gson = new Gson();
-        	String updateDtoJson = gson.toJson(params.get("apiUpdateDtoList"));
-        	apiUpdateDtoList = gson.fromJson(updateDtoJson, new TypeToken<List<DataSetApiUpdateDTO>>() {}.getType());
+        	String updateDtoJson = gson.toJson(params.get("fieldNameList"));
+        	fieldNameList = gson.fromJson(updateDtoJson, new TypeToken<List<FieldNamesUpdateDTO>>() {}.getType());
         }
-        params.remove("token"); // token 不需要在参数中处理
-        params.remove("apiUpdateDtoList"); // 更新值不需要在参数中处理
+        
+        List<String> conditionNames = Lists.newArrayList();
+        if(!ObjectUtils.isEmpty(params.get("conditionNames"))) {
+        	conditionNames = (List<String>) params.get("conditionNames");
+        }
+        
+        // 移除不需要在执行条件中处理的参数
+        params.remove("token");
+        params.remove("fieldNameList"); 
+        params.remove("conditionNames");
         
         // 对参数进行转换：
         // 如果参数为空、字符串、数字 不做处理
@@ -123,9 +126,9 @@ public class DataSetServer implements DataSetApi {
 
         dataSetExportRequest.setDataSourceId(datasetTable.getDataSourceId());
         dataSetExportRequest.setMode(0);
-        dataSetExportRequest.setType("sql");
+        dataSetExportRequest.setType(DatasetType.SQL.getType());
 
-        return dataSetTableService.sqlExecute(dataSetExportRequest, true, apiUpdateDtoList);
+        return dataSetTableService.sqlExecute(dataSetExportRequest, true, fieldNameList, conditionNames);
 	}
 	
 }

@@ -38,6 +38,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.curator.shaded.com.google.common.collect.Sets;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -49,6 +50,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.jfree.util.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -98,7 +100,6 @@ import io.dataease.controller.request.dataset.DataSetTableRequest;
 import io.dataease.controller.request.dataset.DataSetTaskRequest;
 import io.dataease.controller.response.DataSetDetail;
 import io.dataease.dto.SysLogDTO;
-import io.dataease.dto.dataset.DataSetApiUpdateDTO;
 import io.dataease.dto.dataset.DataSetGroupDTO;
 import io.dataease.dto.dataset.DataSetPreviewPage;
 import io.dataease.dto.dataset.DataSetTableDTO;
@@ -106,6 +107,7 @@ import io.dataease.dto.dataset.DataSetTableUnionDTO;
 import io.dataease.dto.dataset.DataSetTaskLogDTO;
 import io.dataease.dto.dataset.DatasetTableFieldDTO;
 import io.dataease.dto.dataset.ExcelFileData;
+import io.dataease.dto.dataset.FieldNamesUpdateDTO;
 import io.dataease.ext.ExtDataSetGroupMapper;
 import io.dataease.ext.ExtDataSetTableMapper;
 import io.dataease.ext.UtilMapper;
@@ -165,6 +167,7 @@ import io.dataease.service.datasource.DatasourceService;
 import io.dataease.service.engine.EngineService;
 import io.dataease.service.sys.SysAuthService;
 import lombok.Data;
+import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.Expression;
@@ -190,6 +193,7 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.select.SetOperationList;
 import net.sf.jsqlparser.statement.select.WithItem;
+import net.sf.jsqlparser.util.TablesNamesFinder;
 import net.sf.jsqlparser.util.deparser.ExpressionDeParser;
 import net.sf.jsqlparser.util.deparser.SelectDeParser;
 
@@ -3171,7 +3175,8 @@ public class DataSetTableService {
     /**
      * 执行sql
      */
-    public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData, List<DataSetApiUpdateDTO> apiUpdateDtoList) throws Exception {
+    public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData, List<FieldNamesUpdateDTO> fieldNameList
+    		, List<String> conditionNames) throws Exception {
         DatasetSqlLog datasetSqlLog = new DatasetSqlLog();
 
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
@@ -3185,10 +3190,6 @@ public class DataSetTableService {
         String sql = "SELECT * FROM " + tableName;
         if(StringUtils.isNotBlank(dataTableInfo.getSql())) {
             sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
-            
-            if(StringUtils.isBlank(tableName)) {
-            	tableName = extractTableName(sql);
-            }
         }
 
         String tmpSql = removeVariablesForExecuteSql(sql, ds.getType());
@@ -3279,41 +3280,95 @@ public class DataSetTableService {
             }).collect(Collectors.toList());
         }
         
-        if (CollectionUtils.isNotEmpty(jsonArray) && CollectionUtils.isNotEmpty(apiUpdateDtoList)) {
-        	for(DataSetApiUpdateDTO apiUpdateDto: apiUpdateDtoList) {
-//        		DatasourceRequest datasourceFieldsRequest = new DatasourceRequest();
-//                datasourceFieldsRequest.setDatasource(ds);
-//                datasourceFieldsRequest.setTable(dataTableInfo.getTable());
-//                List<TableField> tableFields = datasourceProvider.getTableFields(datasourceFieldsRequest);
-//                for (TableField tf : tableFields) {
-//                	System.out.println("f: "+ new Gson().toJson(tf));
-//                }
-                
-                List<String> fieldList = Lists.newArrayList(); // 返回信息集合
-            	jsonArray.stream().forEach(o -> {
-            		if(!ObjectUtils.isEmpty(o.get(apiUpdateDto.getConditionName()))) {
-            			fieldList.add(String.valueOf(o.get(apiUpdateDto.getConditionName())));
-            		}
-            	});
-
-            	if(!CollectionUtils.isEmpty(fieldList)) {
-            		String fieldVals = fieldList.stream().collect(Collectors.joining(","));
-            		
-            		String sqlUpdate = "update " + tableName + " set " + apiUpdateDto.getFieldName() + " = '" + apiUpdateDto.getFieldVal() + "' where " + apiUpdateDto.getConditionName() + " in (" + fieldVals + ")";
-                    DatasourceRequest datasourceUpdateRequest = new DatasourceRequest();
-                    datasourceUpdateRequest.setDatasource(ds);
-                    datasourceUpdateRequest.setQuery(sqlUpdate);
-                    int upCount = datasourceProvider.execute(datasourceUpdateRequest);
-                    if(upCount > 0) {
-                        System.out.println("upsuccess");
-                    }
-            	}
+        if (CollectionUtils.isNotEmpty(jsonArray) && CollectionUtils.isNotEmpty(fieldNameList) 
+        		&& CollectionUtils.isNotEmpty(conditionNames)) {
+        	Set<String> tableNames = Sets.newHashSet();
+        	if(StringUtils.isBlank(tableName)) {
+        		tableNames = tablesNamesFinder(sql);
+        		if(CollectionUtils.isEmpty(tableNames)) {
+        			return ResultHolder.error("通过sql更新, 未解析到表名！sql 为：" + sql);
+        		} else if(tableNames.size() > 1) {
+        			return ResultHolder.error("通过sql更新, 解析到多个表名，不支持修改！sql 为：" + sql);
+        		}
+        		
+        		tableName = tableNames.stream().findFirst().get();
+            }
+        	
+        	List<String> errMsgList = Lists.newArrayList(); // 错误信息
+        	final String tableNameFinal = tableName;
+        	jsonArray.stream().forEach(o -> {
+        		String conditionNameSql = jointConditionNameSql(o, conditionNames);
+        		if(StringUtils.isBlank(conditionNameSql)) {
+        			errMsgList.add("拼接条件字段错误！");
+        			return ;
+        		}
+        		String updateSql = "update " + tableNameFinal + " set " + jointFieldNameSql(fieldNameList) + " where " + conditionNameSql;
+        		
+        		DatasourceRequest datasourceUpdateRequest = new DatasourceRequest();
+                datasourceUpdateRequest.setDatasource(ds);
+                datasourceUpdateRequest.setQuery(updateSql);
+                int upCount;
+				try {
+					upCount = datasourceProvider.execute(datasourceUpdateRequest);
+					if(upCount <= 0) {
+						errMsgList.add("修改 sql 执行失败！");
+	                	return;
+	                }
+				} catch (Exception e) {
+					logger.error("修改 sql 执行异常！{}", e);
+					errMsgList.add("修改 sql 执行异常！");
+					return;
+				}
+        	});
+        	
+        	if(!CollectionUtils.isEmpty(errMsgList)) {
+        		String msg = errMsgList.stream().collect(Collectors.joining(","));
+        		if(msg.length() > 50) {
+        			msg = msg.substring(0, 50) + "...";
+        		}
+        		return ResultHolder.error("执行 sql 修改失败！{}", msg);
         	}
         }
         
         return ResultHolder.success(jsonArray);
     }
+    
+    /**
+     * 修改-拼接字段 sql
+     * 
+     * @param fieldNameList
+     * @return
+     */
+    private String jointFieldNameSql(List<FieldNamesUpdateDTO> fieldNameList) {
+    	List<String> setFieldSqls = Lists.newArrayList();
+    	for(FieldNamesUpdateDTO dto: fieldNameList) {
+    		String setFieldSql = dto.getFieldName() + " = '" + dto.getFieldVal() + "'";
+    		setFieldSqls.add(setFieldSql);
+    	}
+    	return setFieldSqls.stream().collect(Collectors.joining(","));
+    }
 
+    /**
+     * 修改-拼接条件 sql
+     * 
+     * @param jsonMap
+     */
+    private String jointConditionNameSql(Map<String, Object> jsonMap, List<String> conditionNames) {
+    	List<String> conditionSqls = Lists.newArrayList();
+    	for(String conditionName : conditionNames) {
+    		if(!ObjectUtils.isEmpty(jsonMap.get(conditionName))) {
+    			String conditionSql = conditionName + " = "  + jsonMap.get(conditionName);
+    			conditionSqls.add(conditionSql);
+    		}
+    	}
+    	
+    	if(CollectionUtils.isEmpty(conditionSqls)) {
+    		return null;
+    	}
+    	
+    	return conditionSqls.stream().collect(Collectors.joining(" and "));
+    }
+    
     public void checkVariableForExecuteSql(final String sql, String dsType) throws Exception {
         String tmpSql = removeVariablesForExecuteSql(sql, dsType);
         if (tmpSql.contains(SubstitutedParams)) {
@@ -3441,6 +3496,22 @@ public class DataSetTableService {
             return matcher.group(1);
         }
         return null;
+    }
+    
+    /**
+     * 基于sql获取表名
+     * 
+     * @param sql
+     * @return
+     */
+    private Set<String> tablesNamesFinder(String sql){
+		try {
+			TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
+	    	return tablesNamesFinder.findTables(sql);
+		} catch (JSQLParserException e) {
+			logger.error("通过sql解析表名失败：{}", e);
+		}
+    	return null;
     }
     
 }
