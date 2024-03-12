@@ -1,7 +1,6 @@
 package io.dataease.service.system;
 
 import io.dataease.commons.constants.ParamConstants;
-;
 import io.dataease.commons.utils.BeanUtils;
 import io.dataease.commons.utils.EncryptUtils;
 import io.dataease.controller.sys.response.BasicInfo;
