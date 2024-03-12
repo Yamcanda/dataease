@@ -16,7 +16,10 @@ public class DataSetApiUpdateDTO implements Serializable {
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	
+	/**
+	 * 数据集ID
+	 */
+	private String dataSetId;
 	/**
 	 * 参数字段名称
 	 */

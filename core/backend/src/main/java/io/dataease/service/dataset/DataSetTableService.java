@@ -1,5 +1,62 @@
 package io.dataease.service.dataset;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
+import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelReader;
 import com.alibaba.excel.context.AnalysisContext;
@@ -9,15 +66,30 @@ import com.alibaba.excel.read.metadata.ReadSheet;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 import com.alibaba.fastjson.parser.Feature;
+import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
+
 import io.dataease.auth.annotation.DeCleaner;
 import io.dataease.auth.api.dto.CurrentUserDto;
-import io.dataease.commons.constants.*;
-import io.dataease.commons.utils.*;
+import io.dataease.commons.constants.AuthConstants;
+import io.dataease.commons.constants.DePermissionType;
+import io.dataease.commons.constants.JobStatus;
+import io.dataease.commons.constants.ScheduleType;
+import io.dataease.commons.constants.SysAuthConstants;
+import io.dataease.commons.constants.SysLogConstants;
+import io.dataease.commons.constants.TaskStatus;
+import io.dataease.commons.utils.AuthUtils;
+import io.dataease.commons.utils.BeanUtils;
+import io.dataease.commons.utils.CommonBeanFactory;
+import io.dataease.commons.utils.CommonThreadPool;
+import io.dataease.commons.utils.DeLogUtils;
+import io.dataease.commons.utils.LogUtil;
+import io.dataease.commons.utils.Md5Utils;
+import io.dataease.commons.utils.TableUtils;
 import io.dataease.controller.ResultHolder;
 import io.dataease.controller.dataset.request.DataSetTaskInstanceGridRequest;
 import io.dataease.controller.request.dataset.DataSetExportRequest;
@@ -26,24 +98,54 @@ import io.dataease.controller.request.dataset.DataSetTableRequest;
 import io.dataease.controller.request.dataset.DataSetTaskRequest;
 import io.dataease.controller.response.DataSetDetail;
 import io.dataease.dto.SysLogDTO;
-import io.dataease.dto.dataset.*;
-import io.dataease.plugins.common.dto.dataset.DataTableInfoCustomUnion;
-import io.dataease.plugins.common.dto.dataset.DataTableInfoDTO;
-import io.dataease.plugins.common.dto.dataset.ExcelSheetData;
-import io.dataease.plugins.common.dto.dataset.union.UnionDTO;
-import io.dataease.plugins.common.dto.dataset.union.UnionItemDTO;
-import io.dataease.plugins.common.dto.dataset.union.UnionParamDTO;
+import io.dataease.dto.dataset.DataSetApiUpdateDTO;
+import io.dataease.dto.dataset.DataSetGroupDTO;
+import io.dataease.dto.dataset.DataSetPreviewPage;
+import io.dataease.dto.dataset.DataSetTableDTO;
+import io.dataease.dto.dataset.DataSetTableUnionDTO;
+import io.dataease.dto.dataset.DataSetTaskLogDTO;
+import io.dataease.dto.dataset.DatasetTableFieldDTO;
+import io.dataease.dto.dataset.ExcelFileData;
 import io.dataease.ext.ExtDataSetGroupMapper;
 import io.dataease.ext.ExtDataSetTableMapper;
 import io.dataease.ext.UtilMapper;
 import io.dataease.i18n.Translator;
 import io.dataease.listener.util.CacheUtils;
-import io.dataease.plugins.common.base.domain.*;
-import io.dataease.plugins.common.base.mapper.*;
+import io.dataease.plugins.common.base.domain.ChartView;
+import io.dataease.plugins.common.base.domain.ChartViewExample;
+import io.dataease.plugins.common.base.domain.DatasetSqlLog;
+import io.dataease.plugins.common.base.domain.DatasetSqlLogExample;
+import io.dataease.plugins.common.base.domain.DatasetTable;
+import io.dataease.plugins.common.base.domain.DatasetTableExample;
+import io.dataease.plugins.common.base.domain.DatasetTableField;
+import io.dataease.plugins.common.base.domain.DatasetTableFieldExample;
+import io.dataease.plugins.common.base.domain.DatasetTableIncrementalConfig;
+import io.dataease.plugins.common.base.domain.DatasetTableIncrementalConfigExample;
+import io.dataease.plugins.common.base.domain.DatasetTableTask;
+import io.dataease.plugins.common.base.domain.DatasetTableTaskExample;
+import io.dataease.plugins.common.base.domain.DatasetTableTaskLog;
+import io.dataease.plugins.common.base.domain.DatasetTableTaskLogExample;
+import io.dataease.plugins.common.base.domain.Datasource;
+import io.dataease.plugins.common.base.domain.QrtzSchedulerState;
+import io.dataease.plugins.common.base.domain.QrtzSchedulerStateKey;
+import io.dataease.plugins.common.base.mapper.ChartViewMapper;
+import io.dataease.plugins.common.base.mapper.DatasetSqlLogMapper;
+import io.dataease.plugins.common.base.mapper.DatasetTableFieldMapper;
+import io.dataease.plugins.common.base.mapper.DatasetTableIncrementalConfigMapper;
+import io.dataease.plugins.common.base.mapper.DatasetTableMapper;
+import io.dataease.plugins.common.base.mapper.DatasetTableTaskLogMapper;
+import io.dataease.plugins.common.base.mapper.DatasourceMapper;
+import io.dataease.plugins.common.base.mapper.QrtzSchedulerStateMapper;
 import io.dataease.plugins.common.constants.DatasetType;
 import io.dataease.plugins.common.constants.DatasourceTypes;
 import io.dataease.plugins.common.constants.DeTypeConstants;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoCustomUnion;
+import io.dataease.plugins.common.dto.dataset.DataTableInfoDTO;
+import io.dataease.plugins.common.dto.dataset.ExcelSheetData;
 import io.dataease.plugins.common.dto.dataset.SqlVariableDetails;
+import io.dataease.plugins.common.dto.dataset.union.UnionDTO;
+import io.dataease.plugins.common.dto.dataset.union.UnionItemDTO;
+import io.dataease.plugins.common.dto.dataset.union.UnionParamDTO;
 import io.dataease.plugins.common.dto.datasource.DataSourceType;
 import io.dataease.plugins.common.dto.datasource.TableField;
 import io.dataease.plugins.common.exception.DataEaseException;
@@ -51,11 +153,11 @@ import io.dataease.plugins.common.request.datasource.DatasourceRequest;
 import io.dataease.plugins.common.request.permission.DataSetRowPermissionsTreeDTO;
 import io.dataease.plugins.common.request.permission.DatasetRowPermissionsTreeObj;
 import io.dataease.plugins.common.util.ClassloaderResponsity;
+import io.dataease.plugins.datasource.provider.DDLProvider;
 import io.dataease.plugins.datasource.provider.Provider;
+import io.dataease.plugins.datasource.provider.ProviderFactory;
 import io.dataease.plugins.datasource.query.QueryProvider;
 import io.dataease.plugins.xpack.auth.dto.request.ColumnPermissionItem;
-import io.dataease.plugins.datasource.provider.DDLProvider;
-import io.dataease.plugins.datasource.provider.ProviderFactory;
 import io.dataease.provider.datasource.JdbcProvider;
 import io.dataease.provider.query.SQLUtils;
 import io.dataease.service.chart.util.ChartDataBuild;
@@ -69,38 +171,27 @@ import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Parenthesis;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.expression.operators.relational.*;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
+import net.sf.jsqlparser.expression.operators.relational.MinorThan;
+import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
-import net.sf.jsqlparser.statement.select.*;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.ParenthesedSelect;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
+import net.sf.jsqlparser.statement.select.SetOperationList;
+import net.sf.jsqlparser.statement.select.WithItem;
 import net.sf.jsqlparser.util.deparser.ExpressionDeParser;
 import net.sf.jsqlparser.util.deparser.SelectDeParser;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.streaming.SXSSFWorkbook;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletResponse;
-import java.io.*;
-import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.text.MessageFormat;
-import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 
 /**
@@ -3080,7 +3171,7 @@ public class DataSetTableService {
     /**
      * 执行sql
      */
-    public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData) throws Exception {
+    public ResultHolder sqlExecute(DataSetTableRequest dataSetTableRequest, boolean realData, List<DataSetApiUpdateDTO> apiUpdateDtoList) throws Exception {
         DatasetSqlLog datasetSqlLog = new DatasetSqlLog();
 
         Datasource ds = datasourceMapper.selectByPrimaryKey(dataSetTableRequest.getDataSourceId());
@@ -3090,9 +3181,14 @@ public class DataSetTableService {
 
         DataTableInfoDTO dataTableInfo = new Gson().fromJson(dataSetTableRequest.getInfo(), DataTableInfoDTO.class);
 
-        String sql = "SELECT * FROM " + dataTableInfo.getTable();
+        String tableName = dataTableInfo.getTable(); // 表名
+        String sql = "SELECT * FROM " + tableName;
         if(StringUtils.isNotBlank(dataTableInfo.getSql())) {
             sql = dataTableInfo.isBase64Encryption() ? new String(java.util.Base64.getDecoder().decode(dataTableInfo.getSql())) : dataTableInfo.getSql();
+            
+            if(StringUtils.isBlank(tableName)) {
+            	tableName = extractTableName(sql);
+            }
         }
 
         String tmpSql = removeVariablesForExecuteSql(sql, ds.getType());
@@ -3182,6 +3278,39 @@ public class DataSetTableService {
                 return map;
             }).collect(Collectors.toList());
         }
+        
+        if (CollectionUtils.isNotEmpty(jsonArray) && CollectionUtils.isNotEmpty(apiUpdateDtoList)) {
+        	for(DataSetApiUpdateDTO apiUpdateDto: apiUpdateDtoList) {
+//        		DatasourceRequest datasourceFieldsRequest = new DatasourceRequest();
+//                datasourceFieldsRequest.setDatasource(ds);
+//                datasourceFieldsRequest.setTable(dataTableInfo.getTable());
+//                List<TableField> tableFields = datasourceProvider.getTableFields(datasourceFieldsRequest);
+//                for (TableField tf : tableFields) {
+//                	System.out.println("f: "+ new Gson().toJson(tf));
+//                }
+                
+                List<String> fieldList = Lists.newArrayList(); // 返回信息集合
+            	jsonArray.stream().forEach(o -> {
+            		if(!ObjectUtils.isEmpty(o.get(apiUpdateDto.getConditionName()))) {
+            			fieldList.add(String.valueOf(o.get(apiUpdateDto.getConditionName())));
+            		}
+            	});
+
+            	if(!CollectionUtils.isEmpty(fieldList)) {
+            		String fieldVals = fieldList.stream().collect(Collectors.joining(","));
+            		
+            		String sqlUpdate = "update " + tableName + " set " + apiUpdateDto.getFieldName() + " = '" + apiUpdateDto.getFieldVal() + "' where " + apiUpdateDto.getConditionName() + " in (" + fieldVals + ")";
+                    DatasourceRequest datasourceUpdateRequest = new DatasourceRequest();
+                    datasourceUpdateRequest.setDatasource(ds);
+                    datasourceUpdateRequest.setQuery(sqlUpdate);
+                    int upCount = datasourceProvider.execute(datasourceUpdateRequest);
+                    if(upCount > 0) {
+                        System.out.println("upsuccess");
+                    }
+            	}
+        	}
+        }
+        
         return ResultHolder.success(jsonArray);
     }
 
@@ -3295,4 +3424,23 @@ public class DataSetTableService {
         return sql;
     }
 
+    /**
+     * 获取查询sql中的表名
+     * 
+     * @param sqlQuery
+     * @return
+     */
+    private String extractTableName(String sqlQuery) {
+        // 正则表达式匹配基本表名
+        // 匹配方式：不含WITH或INNER JOIN或LEFT JOIN等的SELECT语句中的第一个表名
+        String regex = "(?i)\\bfrom\\s+([\\w\\.]*)";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(sqlQuery);
+ 
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+    
 }
