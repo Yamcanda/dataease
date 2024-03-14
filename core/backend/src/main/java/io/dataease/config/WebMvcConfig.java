@@ -19,7 +19,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 	private String staticResource;
 
     // for dev
-    @Value("${dataease.static.web.resource}")
+    @Value("${dataease.static.web.resource:}")
     private String staticWebResource;
 
     @Value("${spring.profiles.active}")

@@ -3279,16 +3279,17 @@ public class DataSetTableService {
                 return map;
             }).collect(Collectors.toList());
         }
-        
+
+        // 处理增量时更新对应标识字段
         if (CollectionUtils.isNotEmpty(jsonArray) && CollectionUtils.isNotEmpty(fieldNameList) 
         		&& CollectionUtils.isNotEmpty(conditionNames)) {
-        	Set<String> tableNames = Sets.newHashSet();
+        	Set<String> tableNames;
         	if(StringUtils.isBlank(tableName)) {
         		tableNames = tablesNamesFinder(sql);
         		if(CollectionUtils.isEmpty(tableNames)) {
-        			return ResultHolder.error("通过sql更新, 未解析到表名！sql 为：" + sql);
+        			return ResultHolder.error("增量获取数据更新对应标识时, 未解析到表名！SQL: " + sql);
         		} else if(tableNames.size() > 1) {
-        			return ResultHolder.error("通过sql更新, 解析到多个表名，不支持修改！sql 为：" + sql);
+        			return ResultHolder.error("增量获取数据更新对应标识时, 解析到多个表名！SQL: " + sql);
         		}
         		
         		tableName = tableNames.stream().findFirst().get();
@@ -3299,10 +3300,10 @@ public class DataSetTableService {
         	jsonArray.stream().forEach(o -> {
         		String conditionNameSql = jointConditionNameSql(o, conditionNames);
         		if(StringUtils.isBlank(conditionNameSql)) {
-        			errMsgList.add("拼接条件字段错误！");
+        			errMsgList.add("增量获取数据更新对应标识时, 拼接条件字段错误！");
         			return ;
         		}
-        		String updateSql = "update " + tableNameFinal + " set " + jointFieldNameSql(fieldNameList) + " where " + conditionNameSql;
+        		String updateSql = "UPDATE " + tableNameFinal + " SET " + jointFieldNameSql(fieldNameList) + " WHERE " + conditionNameSql;
         		
         		DatasourceRequest datasourceUpdateRequest = new DatasourceRequest();
                 datasourceUpdateRequest.setDatasource(ds);
@@ -3315,8 +3316,8 @@ public class DataSetTableService {
 	                	return;
 	                }
 				} catch (Exception e) {
-					logger.error("修改 sql 执行异常！{}", e);
-					errMsgList.add("修改 sql 执行异常！");
+					logger.error("增量获取数据更新对应标识时, SQL 执行失败！{}", e);
+					errMsgList.add("增量获取数据更新对应标识时, SQL 执行失败！");
 					return;
 				}
         	});
@@ -3326,7 +3327,7 @@ public class DataSetTableService {
         		if(msg.length() > 50) {
         			msg = msg.substring(0, 50) + "...";
         		}
-        		return ResultHolder.error("执行 sql 修改失败！{}", msg);
+        		return ResultHolder.error("增量获取数据更新对应标识时, SQL 执行失败！{}", msg);
         	}
         }
         

@@ -35,7 +35,7 @@ public class DataSetServer implements DataSetApi {
 	public ResultHolder fetchOrUpdate(String id, Map<String, Object> params) throws Exception {
 		DatasetTable datasetTable = dataSetTableService.get(id);
         if (datasetTable == null){
-            return ResultHolder.error("找不到对应的 sql 数据集！");
+            return ResultHolder.error("找不到对应的 SQL 数据集！");
         }
         
         if(ObjectUtils.isEmpty(params)) {
@@ -43,12 +43,12 @@ public class DataSetServer implements DataSetApi {
         }
         
         if(ObjectUtils.isEmpty(params.get("token"))) {
-        	return ResultHolder.error("未找到token值！");
+        	return ResultHolder.error("未找到 Token 值！");
         }
         
         String token = String.valueOf(params.get("token"));
         if(ObjectUtils.isEmpty(params.get("token")) || !token.equals(ApiProperties.apiToken)) {
-        	return ResultHolder.error("token验证不通过！");
+        	return ResultHolder.error("Token 验证不通过！");
         }
         
         // 更新语句参数
@@ -63,18 +63,15 @@ public class DataSetServer implements DataSetApi {
         if(!ObjectUtils.isEmpty(params.get("conditionNames"))) {
         	conditionNames = (List<String>) params.get("conditionNames");
         }
-        
-        // 移除不需要在执行条件中处理的参数
-        params.remove("token");
-        params.remove("fieldNameList"); 
-        params.remove("conditionNames");
-        
+
         // 对参数进行转换：
         // 如果参数为空、字符串、数字 不做处理
         // 如果参数为数组，根据
         Map<String, String> paramMap = new HashMap<>();
         params.forEach((k, v) -> {
-            if (v == null) {
+            if(k.equalsIgnoreCase("token") ||
+                    k.equalsIgnoreCase("fieldNameList") ||
+                    k.equalsIgnoreCase("conditionNames") || v == null) {
                 return;
             }
 
@@ -106,6 +103,10 @@ public class DataSetServer implements DataSetApi {
                 paramMap.put(k, String.valueOf(v));
             }
         });
+
+        if(ObjectUtils.isEmpty(paramMap)) {
+            return ResultHolder.error("未提供增量参数！");
+        }
 
         DataSetExportRequest dataSetExportRequest = new DataSetExportRequest();
         dataSetExportRequest.setId(id);
