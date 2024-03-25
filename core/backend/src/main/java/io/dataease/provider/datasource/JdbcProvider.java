@@ -616,6 +616,17 @@ public class JdbcProvider extends DefaultJdbcProvider {
         Driver driverClass = (Driver) jdbcClassLoader.loadClass(driverClassName).newInstance();
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         try {
+            // 适配 SQL Server 2000 数据库主版本: 8
+            switch (datasourceType) {
+                case sqlServer:
+                    if(driverClassName.indexOf("jtds") > 0) {
+                        jdbcurl = jdbcurl.replace("jdbc:", "jdbc:jtds:");
+                    }
+                    break;
+                default:
+                    break;
+            }
+
             Thread.currentThread().setContextClassLoader(jdbcClassLoader);
             conn = driverClass.connect(jdbcurl, props);
         } catch (Exception e) {
@@ -654,8 +665,21 @@ public class JdbcProvider extends DefaultJdbcProvider {
                 break;
             case sqlServer:
                 SqlServerConfiguration sqlServerConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), SqlServerConfiguration.class);
-                dataSource.setDriverClassName(sqlServerConfiguration.getDriver());
-                dataSource.setUrl(sqlServerConfiguration.getJdbc());
+                // 适配 SQL Server 2000 数据库主版本: 8
+                String ver = dbVer(datasourceRequest);
+                if(StringUtils.isNotEmpty(ver) && ver.equals("8")) {
+                    String customDriver = sqlServerConfiguration.getCustomDriver();
+                    String driverClassName = sqlServerConfiguration.getDriver();
+                    if (!isDefaultClassLoader(customDriver)) {
+                        DeDriver deDriver = deDriverMapper.selectByPrimaryKey(customDriver);
+                        driverClassName = deDriver.getDriverClass();
+                    }
+                    dataSource.setDriverClassName(driverClassName);
+                    dataSource.setUrl(sqlServerConfiguration.getJdbc().replace("jdbc:", "jdbc:jtds:"));
+                } else {
+                    dataSource.setDriverClassName(sqlServerConfiguration.getDriver());
+                    dataSource.setUrl(sqlServerConfiguration.getJdbc());
+                }
                 dataSource.setValidationQuery("select 1");
                 jdbcConfiguration = sqlServerConfiguration;
                 break;

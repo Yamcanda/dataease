@@ -248,13 +248,34 @@ public abstract class DefaultJdbcProvider extends Provider {
         String queryStr = getSchemaSql(datasourceRequest);
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         int queryTimeout = jdbcConfiguration.getQueryTimeout() > 0 ? jdbcConfiguration.getQueryTimeout() : 0;
-        try (Connection con = getConnection(datasourceRequest); Statement statement = getStatement(con, queryTimeout); ResultSet resultSet = statement.executeQuery(queryStr)) {
-            while (resultSet.next()) {
-                schemas.add(resultSet.getString(1));
-            }
-            return schemas;
-        } catch (Exception e) {
-            DataEaseException.throwException(e);
+
+        DatasourceTypes datasourceType = DatasourceTypes.valueOf(datasourceRequest.getDatasource().getType());
+
+        switch (datasourceType) {
+            case sqlServer:
+                // 适配 SQL Server 2000 数据库主版本: 8
+                String ver = dbVer(datasourceRequest);
+                if(StringUtils.isNotEmpty(ver) && ver.equals("8")) {
+                    try (Connection con = getConnection(datasourceRequest); ResultSet resultSet = con.getMetaData().getSchemas()) {
+                        while (resultSet.next()) {
+                            schemas.add(resultSet.getString(1));
+                        }
+                        return schemas;
+                    } catch (Exception e) {
+                        DataEaseException.throwException(e);
+                    }
+                    break;
+                }
+            default:
+                try (Connection con = getConnection(datasourceRequest); Statement statement = getStatement(con, queryTimeout); ResultSet resultSet = statement.executeQuery(queryStr)) {
+                    while (resultSet.next()) {
+                        schemas.add(resultSet.getString(1));
+                    }
+                    return schemas;
+                } catch (Exception e) {
+                    DataEaseException.throwException(e);
+                }
+                break;
         }
         return new ArrayList<>();
     }
@@ -536,6 +557,15 @@ public abstract class DefaultJdbcProvider extends Provider {
     public String dsVersion(DatasourceRequest datasourceRequest) throws Exception{
         JdbcConfiguration jdbcConfiguration = new Gson().fromJson(datasourceRequest.getDatasource().getConfiguration(), JdbcConfiguration.class);
         try (Connection con = getConnectionFromPool(datasourceRequest)) {
+            return String.valueOf(con.getMetaData().getDatabaseMajorVersion());
+        } catch (Exception e) {
+            DataEaseException.throwException(e.getMessage());
+        }
+        return "";
+    }
+
+    public String dbVer(DatasourceRequest datasourceRequest) {
+        try (Connection con = getConnection(datasourceRequest)) {
             return String.valueOf(con.getMetaData().getDatabaseMajorVersion());
         } catch (Exception e) {
             DataEaseException.throwException(e.getMessage());
