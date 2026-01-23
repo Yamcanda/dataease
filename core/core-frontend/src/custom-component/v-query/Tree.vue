@@ -18,9 +18,13 @@ import { getFieldTree } from '@/api/dataset'
 import colorFunctions from 'less/lib/less/functions/color.js'
 import colorTree from 'less/lib/less/tree/color.js'
 import { colorStringToHex } from '@/utils/color'
+import { ElMessage } from 'element-plus-secondary'
+import { useI18n } from '@/hooks/web/useI18n'
+const { t } = useI18n()
 
 interface SelectConfig {
   selectValue: any
+  required: false
   defaultMapValue: any
   defaultValue: any
   queryConditionWidth: number
@@ -51,6 +55,7 @@ const props = defineProps({
       return {
         selectValue: '',
         defaultValue: '',
+        required: false,
         queryConditionWidth: 0,
         displayType: '',
         resultMode: 0,
@@ -314,6 +319,39 @@ const dfsAuth = (tree, val) => {
   })
 }
 
+function containsNodeById(source, params) {
+  // 统一处理参数为数组
+  const searchIds = Array.isArray(params) ? params : [params]
+
+  // 递归搜索函数
+  function searchById(node) {
+    // 检查当前节点的id是否在搜索列表中
+    if (searchIds.includes(node.id)) {
+      return true
+    }
+
+    // 递归搜索子节点
+    if (node.children && node.children.length > 0) {
+      for (const child of node.children) {
+        if (searchById(child)) {
+          return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  // 遍历所有根节点
+  for (const node of source) {
+    if (searchById(node)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 const getTreeOption = debounce(() => {
   loading.value = true
   getFieldTree({
@@ -323,6 +361,18 @@ const getTreeOption = debounce(() => {
   })
     .then(res => {
       treeOptionList.value = filterTree(dfs(res), config.value.optionFilter)
+      if (config.value?.required && config.value?.optionFilter?.length > 0) {
+        const isValid = containsNodeById(treeOptionList.value, config.value.selectValue)
+        if (!isValid) {
+          config.value.selectValue = null
+          ElMessage({
+            message: `【${config.value?.name}】${t('v_query.before_querying')}`,
+            type: 'error',
+            duration: 3000
+          })
+        }
+      }
+
       if (fromSelect) {
         fromTreeSelectConfirm.value = true
         if (multiple.value && Array.isArray(treeValue.value) && treeValue.value.length) {
@@ -396,35 +446,93 @@ const tagColor = computed(() => {
     .toRGB()
 })
 
-const filterTree = (treeData, filterIds) => {
+function filterTree(treeData, filterIds) {
   if (!filterIds || filterIds.length === 0) {
     return treeData
   }
-  const filterIdSet = new Set(filterIds)
-  // 递归处理每个节点
-  const recursionFilter = node => {
-    const newNode = { ...node }
+  const filterSet = new Set(filterIds)
 
-    // 2. 处理子节点：有子节点才过滤，无子节点直接返回当前节点
-    if (newNode.children && Array.isArray(newNode.children) && newNode.children.length > 0) {
-      // 筛选出当前节点的子节点中，id在过滤清单里的「命中子节点」
-      const hitChildren = newNode.children.filter(child => filterIdSet.has(child.id))
+  // 用于存储最终保留的所有节点ID
+  const keepIds = new Set()
 
-      if (hitChildren.length > 0) {
-        // 规则1：当前层级有命中的子节点 → 只保留命中的，递归过滤其子节点
-        newNode.children = hitChildren.map(child => recursionFilter(child))
-      } else {
-        // 规则2：当前层级无命中的子节点 → 完整保留所有子节点，子节点也不做过滤
-        newNode.children = [...newNode.children]
+  // 用于查找节点的Map
+  const nodeMap = new Map()
+  // 用于构建节点关系的Map（子节点到父节点）
+  const parentMap = new Map()
+
+  // 遍历所有节点，构建Map和父子关系
+  function traverse(nodes, parentId = null) {
+    for (const node of nodes) {
+      nodeMap.set(node.id, node)
+      if (parentId) {
+        parentMap.set(node.id, parentId)
+      }
+
+      // 递归处理子节点
+      if (node.children && node.children.length > 0) {
+        traverse(node.children, node.id)
       }
     }
-    return newNode
   }
 
-  // 根节点过滤：只保留根节点id在过滤清单中的节点，再递归处理子节点
-  return treeData
-    .filter(rootNode => filterIdSet.has(rootNode.id))
-    .map(node => recursionFilter(node))
+  // 收集所有匹配的节点及其祖先和后代
+  function collectRelatedNodes(nodeId) {
+    if (keepIds.has(nodeId)) return
+
+    keepIds.add(nodeId)
+    const node = nodeMap.get(nodeId)
+
+    // 1. 收集所有祖先节点
+    let currentId = nodeId
+    while (parentMap.has(currentId)) {
+      const parentId = parentMap.get(currentId)
+      keepIds.add(parentId)
+      currentId = parentId
+    }
+
+    // 2. 收集所有后代节点（递归）
+    function collectDescendants(node) {
+      if (node.children && node.children.length > 0) {
+        for (const child of node.children) {
+          keepIds.add(child.id)
+          collectDescendants(child)
+        }
+      }
+    }
+    collectDescendants(node)
+  }
+
+  // 第二步：递归构建过滤后的树
+  function buildFilteredTree(nodes) {
+    const result = []
+
+    for (const node of nodes) {
+      // 如果节点ID在保留集合中，则保留该节点
+      if (keepIds.has(node.id)) {
+        const newNode = { ...node }
+
+        // 递归处理子节点
+        if (newNode.children && newNode.children.length > 0) {
+          newNode.children = buildFilteredTree(newNode.children)
+        }
+
+        result.push(newNode)
+      }
+    }
+
+    return result
+  }
+
+  // 执行遍历和构建
+  traverse(treeData)
+
+  for (const filterId of filterIds) {
+    if (nodeMap.has(filterId)) {
+      collectRelatedNodes(filterId)
+    }
+  }
+
+  return buildFilteredTree(treeData)
 }
 </script>
 
