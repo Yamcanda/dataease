@@ -5,3 +5,9 @@
 *.xml linguist-language=Java
 *.css linguist-language=Java
 *.ts linguist-language=Java
+
+*.vue text=lf
+*.ts text=lf
+*.js text=lf
+*.css text=lf
+*.scss text=lf
