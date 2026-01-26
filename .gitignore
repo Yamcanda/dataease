@@ -52,3 +52,9 @@ core/core-frontend/src/assets/fsSvg.html
 .vite/
 /core/backend/
 /classpath:substitule.json
+
+
+.history
+.claude
+nul
+*.http
