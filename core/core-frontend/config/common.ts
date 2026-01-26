@@ -52,6 +52,7 @@ export default {
     }),
     eslintPlugin({
       cache: false,
+      fix: true,
       include: [
         'src/**/*.ts',
         'src/**/*.tsx',
